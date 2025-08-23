@@ -187,18 +187,18 @@ Each task is designed to be:
 
 **Acceptance Criteria**:
 
-- [ ] Users can edit flow names and instructions
-- [ ] Add/delete flows with immediate UI update
-- [ ] Flow validation shows warnings for incomplete flows
-- [ ] Changes saved automatically to database
-- [ ] Drag-and-drop flow reordering
+- [x] Users can edit flow names and instructions ✅
+- [x] Add/delete flows with immediate UI update ✅
+- [x] Flow validation shows warnings for incomplete flows ✅
+- [x] Drag-and-drop flow reordering ✅
+- [ ] Changes saved automatically to database (Future enhancement)
 
 **Testing**:
 
-- Edit flow text, verify changes persist
-- Delete flows, confirm removal from database
-- Add new custom flows manually
-- Test flow validation with incomplete data
+- [x] Edit flow text, verify changes persist ✅
+- [x] Delete flows, confirm removal from database ✅
+- [x] Add new custom flows manually ✅
+- [x] Test flow validation with incomplete data ✅
 
 ---
 

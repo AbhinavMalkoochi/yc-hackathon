@@ -258,3 +258,6 @@
 2025-08-23 05:06:15,202 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
 2025-08-23 05:06:22,464 - main - INFO - Successfully generated 5 flows in 7.26s
 2025-08-23 05:06:22,468 - main - INFO - [req_1755943575198] Request completed: 200 in 7.2697s
+2025-08-23 05:06:40,310 - main - INFO - Gemini client initialized successfully
+2025-08-23 05:06:59,214 - main - INFO - Gemini client initialized successfully
+2025-08-23 05:07:04,657 - main - INFO - Gemini client initialized successfully

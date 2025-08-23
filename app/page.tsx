@@ -55,7 +55,7 @@ export default function Home() {
                 href="/flow-generation-test"
                 className="inline-block bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-md font-medium transition-colors text-center"
               >
-                🤖 Task 2.1: LLM Flow Generation Test
+                🛠️ Task 2.2: Flow Editing & Management
               </Link>
             </div>
           </div>

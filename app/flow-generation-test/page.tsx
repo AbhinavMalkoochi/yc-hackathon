@@ -29,6 +29,8 @@ export default function FlowGenerationTestPage() {
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [loading, setLoading] = useState(false);
     const [generatedFlows, setGeneratedFlows] = useState<TestFlow[]>([]);
+    const [editingFlow, setEditingFlow] = useState<number | null>(null);
+    const [draggedFlow, setDraggedFlow] = useState<number | null>(null);
     const [generationTime, setGenerationTime] = useState<number | null>(null);
 
     // Form states
@@ -51,6 +53,85 @@ export default function FlowGenerationTestPage() {
     const clearLogs = () => {
         setLogs([]);
         addLog("info", "Logs cleared");
+    };
+
+    // Flow management functions
+    const editFlow = (index: number) => {
+        setEditingFlow(index);
+    };
+
+    const saveFlow = (index: number, updatedFlow: TestFlow) => {
+        const newFlows = [...generatedFlows];
+        newFlows[index] = updatedFlow;
+        setGeneratedFlows(newFlows);
+        setEditingFlow(null);
+        addLog("success", `Flow ${index + 1} updated successfully`);
+    };
+
+    const deleteFlow = (index: number) => {
+        const newFlows = generatedFlows.filter((_, i) => i !== index);
+        setGeneratedFlows(newFlows);
+        addLog("info", `Flow ${index + 1} deleted`);
+    };
+
+    const addNewFlow = () => {
+        const newFlow: TestFlow = {
+            name: "New Test Flow",
+            description: "Enter flow description here",
+            instructions: "Enter step-by-step instructions here"
+        };
+        setGeneratedFlows([...generatedFlows, newFlow]);
+        setEditingFlow(generatedFlows.length);
+        addLog("info", "New flow added");
+    };
+
+    const duplicateFlow = (index: number) => {
+        const flowToDuplicate = generatedFlows[index];
+        const duplicatedFlow: TestFlow = {
+            name: `${flowToDuplicate.name} (Copy)`,
+            description: flowToDuplicate.description,
+            instructions: flowToDuplicate.instructions
+        };
+        const newFlows = [...generatedFlows];
+        newFlows.splice(index + 1, 0, duplicatedFlow);
+        setGeneratedFlows(newFlows);
+        addLog("info", `Flow ${index + 1} duplicated`);
+    };
+
+    const moveFlow = (fromIndex: number, toIndex: number) => {
+        const newFlows = [...generatedFlows];
+        const [movedFlow] = newFlows.splice(fromIndex, 1);
+        newFlows.splice(toIndex, 0, movedFlow);
+        setGeneratedFlows(newFlows);
+        addLog("info", `Flow moved from position ${fromIndex + 1} to ${toIndex + 1}`);
+    };
+
+    const validateFlow = (flow: TestFlow): string[] => {
+        const errors: string[] = [];
+        if (!flow.name.trim()) errors.push("Name is required");
+        if (!flow.description.trim()) errors.push("Description is required");
+        if (!flow.instructions.trim()) errors.push("Instructions are required");
+        if (flow.name.length < 3) errors.push("Name must be at least 3 characters");
+        if (flow.description.length < 10) errors.push("Description must be at least 10 characters");
+        if (flow.instructions.length < 20) errors.push("Instructions must be at least 20 characters");
+        return errors;
+    };
+
+    // Drag and drop handlers
+    const handleDragStart = (index: number) => {
+        setDraggedFlow(index);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+    };
+
+    const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+        e.preventDefault();
+        if (draggedFlow !== null && draggedFlow !== dropIndex) {
+            moveFlow(draggedFlow, dropIndex);
+        }
+        setDraggedFlow(null);
     };
 
     const clearFlows = () => {
@@ -131,15 +212,187 @@ export default function FlowGenerationTestPage() {
         }
     };
 
+    // Editable Flow Component
+    const EditableFlow = ({ flow, index, isEditing, onSave, onCancel }: {
+        flow: TestFlow;
+        index: number;
+        isEditing: boolean;
+        onSave: (flow: TestFlow) => void;
+        onCancel: () => void;
+    }) => {
+        const [editedFlow, setEditedFlow] = useState<TestFlow>(flow);
+        const [errors, setErrors] = useState<string[]>([]);
+
+        const handleSave = () => {
+            const validationErrors = validateFlow(editedFlow);
+            setErrors(validationErrors);
+            if (validationErrors.length === 0) {
+                onSave(editedFlow);
+            }
+        };
+
+        const handleCancel = () => {
+            setEditedFlow(flow);
+            setErrors([]);
+            onCancel();
+        };
+
+        if (!isEditing) {
+            const flowErrors = validateFlow(flow);
+            return (
+                <div
+                    className={`border rounded-lg p-4 transition-all duration-200 ${draggedFlow === index ? 'opacity-50' : ''
+                        } ${flowErrors.length > 0 ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200'}`}
+                    draggable
+                    onDragStart={() => handleDragStart(index)}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, index)}
+                >
+                    <div className="flex items-start justify-between mb-2">
+                        <h3 className="font-semibold text-lg text-gray-900 flex-1">
+                            {index + 1}. {flow.name}
+                        </h3>
+                        <div className="flex items-center gap-2 ml-4">
+                            {flowErrors.length > 0 && (
+                                <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-medium">
+                                    ⚠️ {flowErrors.length} issue{flowErrors.length > 1 ? 's' : ''}
+                                </span>
+                            )}
+                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
+                                Flow {index + 1}
+                            </span>
+                            <button
+                                onClick={() => editFlow(index)}
+                                className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition-colors"
+                            >
+                                Edit
+                            </button>
+                            <button
+                                onClick={() => duplicateFlow(index)}
+                                className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs transition-colors"
+                            >
+                                Copy
+                            </button>
+                            <button
+                                onClick={() => deleteFlow(index)}
+                                className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition-colors"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+
+                    {flowErrors.length > 0 && (
+                        <div className="mb-3 p-2 bg-yellow-100 border border-yellow-300 rounded text-sm">
+                            <strong className="text-yellow-800">Issues:</strong>
+                            <ul className="list-disc list-inside text-yellow-700 mt-1">
+                                {flowErrors.map((error, idx) => (
+                                    <li key={idx}>{error}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
+                    <p className="text-gray-600 mb-3">
+                        <strong>Description:</strong> {flow.description}
+                    </p>
+
+                    <div className="bg-gray-50 rounded p-3">
+                        <strong className="text-gray-700">Instructions:</strong>
+                        <div className="mt-1 text-gray-800 whitespace-pre-wrap font-mono text-sm">
+                            {flow.instructions}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div className="border border-blue-300 rounded-lg p-4 bg-blue-50">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-lg text-gray-900">
+                        Editing Flow {index + 1}
+                    </h3>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={handleSave}
+                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition-colors"
+                        >
+                            Save
+                        </button>
+                        <button
+                            onClick={handleCancel}
+                            className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm transition-colors"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+
+                {errors.length > 0 && (
+                    <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded">
+                        <strong className="text-red-800">Please fix these issues:</strong>
+                        <ul className="list-disc list-inside text-red-700 mt-1">
+                            {errors.map((error, idx) => (
+                                <li key={idx}>{error}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Flow Name
+                        </label>
+                        <input
+                            type="text"
+                            value={editedFlow.name}
+                            onChange={(e) => setEditedFlow({ ...editedFlow, name: e.target.value })}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter flow name..."
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Description
+                        </label>
+                        <textarea
+                            value={editedFlow.description}
+                            onChange={(e) => setEditedFlow({ ...editedFlow, description: e.target.value })}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            rows={2}
+                            placeholder="Enter flow description..."
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Instructions
+                        </label>
+                        <textarea
+                            value={editedFlow.instructions}
+                            onChange={(e) => setEditedFlow({ ...editedFlow, instructions: e.target.value })}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                            rows={6}
+                            placeholder="Enter step-by-step instructions..."
+                        />
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 py-8">
             <div className="max-w-7xl mx-auto px-4">
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                        Task 2.1: LLM Integration for Flow Generation Test
+                        Task 2.2: Flow Editing & Management Interface
                     </h1>
                     <p className="text-gray-600">
-                        Test LLM-powered generation of browser testing flows from natural language prompts
+                        Generate, edit, validate, and manage browser test flows with real-time editing capabilities
                     </p>
                 </div>
 
@@ -240,36 +493,73 @@ export default function FlowGenerationTestPage() {
                         {generatedFlows.length > 0 && (
                             <div className="bg-white rounded-lg shadow-md p-6">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h2 className="text-xl font-semibold">Generated Test Flows</h2>
-                                    <div className="text-sm text-gray-500">
-                                        {generatedFlows.length} flows generated in {generationTime?.toFixed(2)}s
+                                    <h2 className="text-xl font-semibold">
+                                        Test Flows ({generatedFlows.length})
+                                    </h2>
+                                    <div className="flex items-center gap-4">
+                                        {generationTime && (
+                                            <div className="text-sm text-gray-500">
+                                                Generated in {generationTime.toFixed(2)}s
+                                            </div>
+                                        )}
+                                        <button
+                                            onClick={addNewFlow}
+                                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded text-sm font-medium transition-colors"
+                                        >
+                                            + Add Flow
+                                        </button>
                                     </div>
+                                </div>
+
+                                {/* Flow Management Info */}
+                                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <h3 className="font-medium text-blue-800 mb-1">Flow Management Tips:</h3>
+                                    <ul className="text-sm text-blue-700 space-y-1">
+                                        <li>• <strong>Edit:</strong> Click "Edit" to modify flow details</li>
+                                        <li>• <strong>Reorder:</strong> Drag & drop flows to change execution order</li>
+                                        <li>• <strong>Validation:</strong> Yellow flows have validation issues</li>
+                                        <li>• <strong>Copy:</strong> Duplicate flows to create variations</li>
+                                    </ul>
                                 </div>
 
                                 <div className="space-y-4">
                                     {generatedFlows.map((flow, index) => (
-                                        <div key={index} className="border border-gray-200 rounded-lg p-4">
-                                            <div className="flex items-start justify-between mb-2">
-                                                <h3 className="font-semibold text-lg text-gray-900">
-                                                    {index + 1}. {flow.name}
-                                                </h3>
-                                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
-                                                    Flow {index + 1}
-                                                </span>
-                                            </div>
-
-                                            <p className="text-gray-600 mb-3">
-                                                <strong>Description:</strong> {flow.description}
-                                            </p>
-
-                                            <div className="bg-gray-50 rounded p-3">
-                                                <strong className="text-gray-700">Instructions:</strong>
-                                                <div className="mt-1 text-gray-800 whitespace-pre-wrap font-mono text-sm">
-                                                    {flow.instructions}
-                                                </div>
-                                            </div>
-                                        </div>
+                                        <EditableFlow
+                                            key={index}
+                                            flow={flow}
+                                            index={index}
+                                            isEditing={editingFlow === index}
+                                            onSave={(updatedFlow) => saveFlow(index, updatedFlow)}
+                                            onCancel={() => setEditingFlow(null)}
+                                        />
                                     ))}
+                                </div>
+
+                                {/* Flow Summary */}
+                                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                                    <h3 className="font-medium text-gray-800 mb-2">Flow Summary:</h3>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                        <div className="text-center">
+                                            <div className="text-2xl font-bold text-blue-600">{generatedFlows.length}</div>
+                                            <div className="text-gray-600">Total Flows</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="text-2xl font-bold text-green-600">
+                                                {generatedFlows.filter(flow => validateFlow(flow).length === 0).length}
+                                            </div>
+                                            <div className="text-gray-600">Valid Flows</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="text-2xl font-bold text-yellow-600">
+                                                {generatedFlows.filter(flow => validateFlow(flow).length > 0).length}
+                                            </div>
+                                            <div className="text-gray-600">Need Attention</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="text-2xl font-bold text-purple-600">{editingFlow !== null ? 1 : 0}</div>
+                                            <div className="text-gray-600">Being Edited</div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
