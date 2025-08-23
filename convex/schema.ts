@@ -67,7 +67,6 @@ export default defineSchema({
     userId: v.optional(v.string()), // Clerk user ID - optional for migration
     sessionId: v.id("testSessions"),
     flowId: v.id("testFlows"),
-    browserUseTaskId: v.string(), // Browser Use Cloud task ID
     browserType: v.string(), // e.g., "chrome", "firefox"
     status: v.union(
       v.literal("initializing"),
@@ -82,7 +81,6 @@ export default defineSchema({
     currentUrl: v.optional(v.string()),
     currentAction: v.optional(v.string()),
     progress: v.number(), // 0-1
-    liveUrl: v.optional(v.string()), // Browser Use Cloud live URL
     metadata: v.optional(
       v.object({
         userAgent: v.optional(v.string()),
@@ -93,13 +91,11 @@ export default defineSchema({
           }),
         ),
         processId: v.optional(v.string()),
-        browserUseData: v.optional(v.any()), // Store Browser Use Cloud response data
       }),
     ),
   })
     .index("by_sessionId", ["sessionId"])
-    .index("by_userId", ["userId"])
-    .index("by_browserUseTaskId", ["browserUseTaskId"]),
+    .index("by_userId", ["userId"]),
 
   // Execution Logs - Detailed logs for debugging and monitoring (now user-specific)
   executionLogs: defineTable({

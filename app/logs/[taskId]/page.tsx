@@ -10,7 +10,7 @@ import { SignInButton, UserButton } from "@clerk/nextjs";
 interface SessionLog {
   taskId: string;
   logs: Array<{
-    type: 'step' | 'status' | 'completion' | 'error' | 'console';
+    type: 'step' | 'status' | 'completion' | 'error';
     timestamp: string;
     data: any;
   }>;
@@ -27,43 +27,210 @@ interface NetworkLog {
   headers: Record<string, string>;
 }
 
-// Authentication Loading Component
-function AuthLoadingScreen() {
+const LogsPage = () => {
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const taskId = params.taskId as string;
+
+  // Session info from URL params
+  const sessionName = searchParams.get('name') || 'Unknown Session';
+  const sessionDescription = searchParams.get('description') || 'No description available';
+
+  // State management
+  const [sessionDetails, setSessionDetails] = useState<any>(null);
+  const [sessionLogs, setSessionLogs] = useState<SessionLog | null>(null);
+  const [networkLogs, setNetworkLogs] = useState<NetworkLog[]>([]);
+  const [activeTab, setActiveTab] = useState<'overview' | 'logs' | 'network' | 'steps'>('overview');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [eventSource, setEventSource] = useState<EventSource | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  const networkEndRef = useRef<HTMLDivElement>(null);
+
+  // Fetch session details
+  const fetchSessionDetails = async () => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/browser-cloud/task/${taskId}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const details = await response.json();
+      setSessionDetails(details);
+
+      // Extract network logs from steps if available
+      if (details.steps) {
+        const extractedNetworkLogs: NetworkLog[] = [];
+        details.steps.forEach((step: any, index: number) => {
+          if (step.network_requests) {
+            step.network_requests.forEach((req: any) => {
+              extractedNetworkLogs.push({
+                timestamp: new Date().toISOString(),
+                method: req.method || 'GET',
+                url: req.url || step.url || 'unknown',
+                status: req.status || 200,
+                responseTime: req.response_time || 0,
+                requestSize: req.request_size || 0,
+                responseSize: req.response_size || 0,
+                headers: req.headers || {}
+              });
+            });
+          }
+        });
+        setNetworkLogs(extractedNetworkLogs);
+      }
+    } catch (error) {
+      console.error('Failed to fetch session details:', error);
+    }
+  };
+
+  // Start streaming logs
+  const startStreaming = () => {
+    if (eventSource) return;
+
+    try {
+      const es = new EventSource(`http://localhost:8000/api/browser-cloud/task/${taskId}/stream`);
+      setEventSource(es);
+      setIsStreaming(true);
+
+      // Initialize logs
+      setSessionLogs({ taskId, logs: [] });
+
+      es.onmessage = (event) => {
+        const logData = JSON.parse(event.data);
+
+        setSessionLogs(prev => ({
+          ...prev!,
+          logs: [...(prev?.logs || []), {
+            type: logData.type,
+            timestamp: logData.timestamp,
+            data: logData
+          }]
+        }));
+
+        // Auto-scroll to bottom
+        setTimeout(() => {
+          logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      };
+
+      es.onerror = () => {
+        es.close();
+        setEventSource(null);
+        setIsStreaming(false);
+      };
+    } catch (error) {
+      console.error('Failed to start streaming:', error);
+    }
+  };
+
+  // Stop streaming
+  const stopStreaming = () => {
+    if (eventSource) {
+      eventSource.close();
+      setEventSource(null);
+      setIsStreaming(false);
+    }
+  };
+
+  // Toggle auto-refresh
+  const toggleAutoRefresh = () => {
+    setAutoRefresh(!autoRefresh);
+    if (!autoRefresh) {
+      fetchSessionDetails();
+    }
+  };
+
+  // Fetch details on mount and start streaming
+  useEffect(() => {
+    fetchSessionDetails();
+    startStreaming();
+
+    // Auto-refresh session details
+    const interval = setInterval(() => {
+      if (autoRefresh) {
+        fetchSessionDetails();
+      }
+    }, 5000);
+
+    return () => {
+      clearInterval(interval);
+      stopStreaming();
+    };
+  }, [taskId, autoRefresh]);
+
+  // Auto-scroll network logs
+  useEffect(() => {
+    setTimeout(() => {
+      networkEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  }, [networkLogs]);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'running': return 'bg-yellow-100 text-yellow-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'failed': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getLogTypeColor = (type: string) => {
+    switch (type) {
+      case 'step': return 'bg-blue-50 border-blue-200';
+      case 'status': return 'bg-yellow-50 border-yellow-200';
+      case 'completion': return 'bg-green-50 border-green-200';
+      case 'error': return 'bg-red-50 border-red-200';
+      default: return 'bg-gray-50 border-gray-200';
+    }
+  };
+
+  const getMethodColor = (method: string) => {
+    switch (method.toUpperCase()) {
+      case 'GET': return 'bg-green-100 text-green-800';
+      case 'POST': return 'bg-blue-100 text-blue-800';
+      case 'PUT': return 'bg-yellow-100 text-yellow-800';
+      case 'DELETE': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusColorClass = (status: number) => {
+    if (status >= 200 && status < 300) return 'text-green-600';
+    if (status >= 400 && status < 500) return 'text-yellow-600';
+    if (status >= 500) return 'text-red-600';
+    return 'text-gray-600';
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto mb-4"></div>
-        <h2 className="text-xl font-semibold text-gray-700">Loading...</h2>
-        <p className="text-gray-500 mt-2">Checking authentication status</p>
-      </div>
-    </div>
-  );
-}
-
-// Unauthenticated Component
-function UnauthenticatedScreen() {
-  return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="text-center max-w-md">
-        <h1 className="text-3xl font-bold text-gray-800 mb-4">Session Details</h1>
-        <p className="text-lg text-gray-600 mb-8">
-          Sign in to view detailed browser session logs and analytics.
-        </p>
-
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Authentication Required</h2>
-          <p className="text-gray-600 mb-6">Please sign in to access session details</p>
-
-          <SignInButton mode="modal">
-            <button className="w-full px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium">
-              Sign In to Continue
-            </button>
-          </SignInButton>
+    <>
+      <AuthLoading>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto mb-4"></div>
+            <h2 className="text-xl font-semibold text-gray-700">Loading...</h2>
+            <p className="text-gray-500 mt-2">Checking authentication status</p>
+          </div>
         </div>
-      </div>
-    </div>
+      </AuthLoading>
+      <Unauthenticated>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center max-w-md">
+            <h1 className="text-2xl font-bold text-gray-800 mb-4">Authentication Required</h1>
+            <p className="text-gray-600 mb-6">You need to sign in to view session details</p>
+            <SignInButton mode="modal">
+              <button className="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium">
+                Sign In to Continue
+              </button>
+            </SignInButton>
+          </div>
+        </div>
+      </Unauthenticated>
+      <Authenticated>
+        <LogsPageContent />
+      </Authenticated>
+    </>
   );
-}
+};
 
 const LogsPageContent = () => {
   const params = useParams();
@@ -95,53 +262,21 @@ const LogsPageContent = () => {
       const details = await response.json();
       setSessionDetails(details);
 
-      // Extract network logs and console logs from steps if available
+      // Extract network logs from steps if available
       if (details.steps) {
         const extractedNetworkLogs: NetworkLog[] = [];
-        details.steps.forEach((step: any, stepIndex: number) => {
-          // Extract network requests from step
-          if (step.network_logs || step.network_requests) {
-            const networkData = step.network_logs || step.network_requests || [];
-            networkData.forEach((req: any) => {
+        details.steps.forEach((step: any, index: number) => {
+          if (step.network_requests) {
+            step.network_requests.forEach((req: any) => {
               extractedNetworkLogs.push({
-                timestamp: step.timestamp || new Date().toISOString(),
-                method: req.method || req.request?.method || 'GET',
-                url: req.url || req.request?.url || step.url || 'unknown',
-                status: req.status || req.response?.status || 200,
-                responseTime: req.responseTime || req.response_time || req.timing?.duration || 0,
-                requestSize: req.requestSize || req.request_size || req.request?.bodySize || 0,
-                responseSize: req.responseSize || req.response_size || req.response?.bodySize || 0,
-                headers: req.headers || req.request?.headers || req.response?.headers || {}
-              });
-            });
-          }
-
-          // Extract console logs from step
-          if (step.console_logs) {
-            step.console_logs.forEach((log: any) => {
-              const consoleLogEntry = {
-                type: 'console' as const,
-                timestamp: log.timestamp || step.timestamp || new Date().toISOString(),
-                data: {
-                  level: log.level || log.type || 'log',
-                  message: log.message || log.text || JSON.stringify(log.args || []),
-                  source: log.source || log.url || step.url || 'browser',
-                  step: stepIndex + 1
-                }
-              };
-
-              // Add to session logs if not already present
-              setSessionLogs(prev => {
-                if (!prev) return { taskId, logs: [consoleLogEntry] };
-                const exists = prev.logs.some(existingLog =>
-                  existingLog.type === 'console' &&
-                  existingLog.timestamp === consoleLogEntry.timestamp &&
-                  existingLog.data.message === consoleLogEntry.data.message
-                );
-                if (!exists) {
-                  return { ...prev, logs: [...prev.logs, consoleLogEntry] };
-                }
-                return prev;
+                timestamp: new Date().toISOString(),
+                method: req.method || 'GET',
+                url: req.url || step.url || 'unknown',
+                status: req.status || 200,
+                responseTime: req.response_time || 0,
+                requestSize: req.request_size || 0,
+                responseSize: req.response_size || 0,
+                headers: req.headers || {}
               });
             });
           }
@@ -168,48 +303,6 @@ const LogsPageContent = () => {
       es.onmessage = (event) => {
         const logData = JSON.parse(event.data);
 
-        // Handle different types of streaming data
-        if (logData.type === 'step' && logData.step) {
-          // Extract console logs from step data
-          if (logData.step.console_logs) {
-            logData.step.console_logs.forEach((consoleLog: any) => {
-              const consoleEntry = {
-                type: 'console' as const,
-                timestamp: consoleLog.timestamp || logData.timestamp,
-                data: {
-                  level: consoleLog.level || 'log',
-                  message: consoleLog.message || JSON.stringify(consoleLog.args || []),
-                  source: consoleLog.source || logData.step.url || 'browser',
-                  step: logData.step.step_number || 'current'
-                }
-              };
-
-              setSessionLogs(prev => ({
-                ...prev!,
-                logs: [...(prev?.logs || []), consoleEntry]
-              }));
-            });
-          }
-
-          // Extract network requests from step data
-          if (logData.step.network_logs || logData.step.network_requests) {
-            const networkData = logData.step.network_logs || logData.step.network_requests || [];
-            const newNetworkLogs = networkData.map((req: any) => ({
-              timestamp: req.timestamp || logData.timestamp,
-              method: req.method || req.request?.method || 'GET',
-              url: req.url || req.request?.url || 'unknown',
-              status: req.status || req.response?.status || 200,
-              responseTime: req.responseTime || req.response_time || req.timing?.duration || 0,
-              requestSize: req.requestSize || req.request_size || req.request?.bodySize || 0,
-              responseSize: req.responseSize || req.response_size || req.response?.bodySize || 0,
-              headers: req.headers || req.request?.headers || req.response?.headers || {}
-            }));
-
-            setNetworkLogs(prev => [...prev, ...newNetworkLogs]);
-          }
-        }
-
-        // Add the original log entry
         setSessionLogs(prev => ({
           ...prev!,
           logs: [...(prev?.logs || []), {
@@ -333,12 +426,11 @@ const LogsPageContent = () => {
             </div>
 
             <div className="flex items-center space-x-3">
-              <UserButton afterSignOutUrl="/" />
               <button
                 onClick={toggleAutoRefresh}
                 className={`px-3 py-1 text-xs rounded-full transition-colors ${autoRefresh
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-gray-100 text-gray-700'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-gray-100 text-gray-700'
                   }`}
               >
                 <RefreshCw size={14} className={`inline mr-1 ${autoRefresh ? 'animate-spin' : ''}`} />
@@ -362,6 +454,8 @@ const LogsPageContent = () => {
                   Start
                 </button>
               )}
+
+              <UserButton afterSignOutUrl="/" />
             </div>
           </div>
         </div>
@@ -415,8 +509,8 @@ const LogsPageContent = () => {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
                     className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 transition-colors ${activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                       }`}
                   >
                     <Icon size={16} />
@@ -533,31 +627,11 @@ const LogsPageContent = () => {
                               </span>
                             </div>
 
-                            {log.type === 'console' && (
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className={`px-2 py-1 rounded text-xs font-medium ${log.data.level === 'error' ? 'bg-red-100 text-red-800' :
-                                    log.data.level === 'warn' ? 'bg-yellow-100 text-yellow-800' :
-                                      log.data.level === 'info' ? 'bg-blue-100 text-blue-800' :
-                                        'bg-gray-100 text-gray-800'
-                                    }`}>
-                                    {log.data.level}
-                                  </span>
-                                  <span className="text-xs text-gray-500">Step {log.data.step}</span>
-                                </div>
-                                <p className="font-mono text-sm bg-gray-100 p-2 rounded">{log.data.message}</p>
-                                {log.data.source && <p className="text-xs text-gray-500">Source: {log.data.source}</p>}
-                              </div>
-                            )}
-
                             {log.type === 'step' && log.data.step && (
                               <div className="space-y-1">
                                 <p><strong>Goal:</strong> {log.data.step.next_goal}</p>
                                 {log.data.step.evaluation_previous_goal && (
                                   <p><strong>Evaluation:</strong> {log.data.step.evaluation_previous_goal}</p>
-                                )}
-                                {log.data.step.console_logs && log.data.step.console_logs.length > 0 && (
-                                  <p className="text-xs text-blue-600">+ {log.data.step.console_logs.length} console logs</p>
                                 )}
                               </div>
                             )}
@@ -720,22 +794,6 @@ const LogsPageContent = () => {
         </div>
       </main>
     </div>
-  );
-};
-
-const LogsPage = () => {
-  return (
-    <>
-      <AuthLoading>
-        <AuthLoadingScreen />
-      </AuthLoading>
-      <Unauthenticated>
-        <UnauthenticatedScreen />
-      </Unauthenticated>
-      <Authenticated>
-        <LogsPageContent />
-      </Authenticated>
-    </>
   );
 };
 
