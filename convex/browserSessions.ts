@@ -167,7 +167,7 @@ export const createBrowserSession = mutation({
       status: "initializing",
       startedAt: new Date().toISOString(),
       progress: 0,
-      liveUrl: args.liveUrl,
+      liveUrl: args.liveUrl || undefined, // Convert null to undefined
       metadata: args.metadata,
     });
 
