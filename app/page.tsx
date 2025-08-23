@@ -13,6 +13,7 @@ import { SignInButton } from "@clerk/nextjs";
 import { UserButton } from "@clerk/nextjs";
 import FastApiTest from "../components/FastApiTest";
 import HealthDashboard from "../components/HealthDashboard";
+import AdminDashboard from "../components/AdminDashboard";
 
 export default function Home() {
   return (
@@ -28,6 +29,9 @@ export default function Home() {
 
         {/* Health Dashboard - Critical for monitoring system status */}
         <HealthDashboard />
+
+        {/* Admin Dashboard - Database management and CRUD operations */}
+        <AdminDashboard />
 
         {/* FastAPI Test Component - Available to all users */}
         <FastApiTest />

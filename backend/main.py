@@ -8,6 +8,7 @@ from typing import Dict, Any
 
 from backend.config import config
 from backend.services.health_checker import health_checker, HealthStatus
+from backend.routers.admin import router as admin_router
 
 # Configure logging
 logging.basicConfig(
@@ -31,6 +32,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(admin_router)
 
 class MessageResponse(BaseModel):
     message: str
