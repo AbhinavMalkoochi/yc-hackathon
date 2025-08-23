@@ -65,9 +65,18 @@ export default defineSchema({
   // Browser Sessions - Track individual browser instances (now user-specific)
   browserSessions: defineTable({
     userId: v.optional(v.string()), // Clerk user ID - optional for migration
-    sessionId: v.id("testSessions"),
-    flowId: v.id("testFlows"),
-    browserType: v.string(), // e.g., "chrome", "firefox"
+    sessionId: v.optional(v.id("testSessions")), // Optional for Browser Use Cloud sessions
+    flowId: v.optional(v.id("testFlows")), // Optional for Browser Use Cloud sessions
+    browserType: v.optional(v.string()), // e.g., "chrome", "firefox"
+
+    // Browser Use Cloud specific fields
+    taskId: v.optional(v.string()), // Browser Use Cloud task ID
+    browserSessionId: v.optional(v.string()), // Browser Use Cloud session ID
+    liveUrl: v.optional(v.string()), // iframe URL for live viewing
+    flowName: v.optional(v.string()), // Flow name for Browser Use Cloud sessions
+    flowDescription: v.optional(v.string()), // Flow description
+    instructions: v.optional(v.string()), // Flow instructions
+
     status: v.union(
       v.literal("initializing"),
       v.literal("ready"),
@@ -75,12 +84,13 @@ export default defineSchema({
       v.literal("completed"),
       v.literal("failed"),
       v.literal("terminated"),
+      v.literal("executing"), // For Browser Use Cloud sessions
     ),
     startedAt: v.string(),
     completedAt: v.optional(v.string()),
     currentUrl: v.optional(v.string()),
     currentAction: v.optional(v.string()),
-    progress: v.number(), // 0-1
+    progress: v.optional(v.number()), // 0-1, optional for Browser Use Cloud
     metadata: v.optional(
       v.object({
         userAgent: v.optional(v.string()),
@@ -91,16 +101,18 @@ export default defineSchema({
           }),
         ),
         processId: v.optional(v.string()),
+        estimatedTime: v.optional(v.number()), // For Browser Use Cloud sessions
       }),
     ),
   })
     .index("by_sessionId", ["sessionId"])
-    .index("by_userId", ["userId"]),
+    .index("by_userId", ["userId"])
+    .index("by_taskId", ["taskId"]), // New index for Browser Use Cloud task lookup
 
   // Execution Logs - Detailed logs for debugging and monitoring (now user-specific)
   executionLogs: defineTable({
     userId: v.optional(v.string()), // Clerk user ID - optional for migration
-    sessionId: v.id("testSessions"),
+    sessionId: v.optional(v.id("testSessions")), // Optional for Browser Use Cloud logs
     flowId: v.optional(v.id("testFlows")),
     browserSessionId: v.optional(v.id("browserSessions")),
     level: v.union(
