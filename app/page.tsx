@@ -4,7 +4,7 @@ import { useState, FC, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowUp, Check, Edit3, Globe, KeyRound, Trash2, Type,
-  Bot, BarChart3, Feather, Share2, Play, Clock, CheckCircle2, AlertCircle
+  Bot, BarChart3, Feather, Share2, Play, Clock, CheckCircle2, AlertCircle, X
 } from 'lucide-react';
 import { generateFlows } from "../lib/api";
 
@@ -13,8 +13,11 @@ interface TestFlow {
   description: string;
   instructions: string;
   approved?: boolean;
-  status?: 'pending' | 'approved' | 'executing' | 'completed' | 'failed';
+  status?: 'pending' | 'approved' | 'executing' | 'completed' | 'failed' | 'running';
   estimatedTime?: number;
+  taskId?: string;
+  liveUrl?: string;
+  sessionId?: string;
 }
 
 interface GenerationResponse {
@@ -47,6 +50,15 @@ const getFlowIcon = (flowName: string) => {
   return <Bot size={20} />;
 };
 
+interface SessionLog {
+  taskId: string;
+  logs: Array<{
+    type: 'step' | 'status' | 'completion' | 'error';
+    timestamp: string;
+    data: any;
+  }>;
+}
+
 const HomePage: FC = () => {
   const [prompt, setPrompt] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
@@ -58,6 +70,12 @@ const HomePage: FC = () => {
     flows?: TestFlow[];
     timestamp: Date;
   }>>([]);
+
+  // Live session management
+  const [liveSessions, setLiveSessions] = useState<TestFlow[]>([]);
+  const [selectedSessionLogs, setSelectedSessionLogs] = useState<string | null>(null);
+  const [sessionLogs, setSessionLogs] = useState<Record<string, SessionLog>>({});
+  const [activeStreams, setActiveStreams] = useState<Record<string, EventSource>>({});
 
   // --- MEMOIZED VALUES ---
   const approvedFlows = useMemo(() => flows.filter(f => f.status === 'approved'), [flows]);
@@ -156,20 +174,168 @@ const HomePage: FC = () => {
     toggleFlowApproval(index);
   };
 
-  const handleRunProcess = () => {
+  const handleRunProcess = async () => {
     const approvedFlowsList = flows.filter(flow => flow.approved);
     console.log("Running process for selected flows:", approvedFlowsList);
-    alert(`Running ${approvedFlowsList.length} flows!`);
 
-    // Here you would call your existing execution logic
-    // For now, just simulate the process
-    const newFlows = flows.map(flow =>
-      flow.approved ? { ...flow, status: 'executing' as const } : flow
-    );
-    setFlows(newFlows);
+    // Convert flows to natural language task descriptions
+    const flowDescriptions = approvedFlowsList.map(flow => {
+      return `${flow.name}: ${flow.description}. Instructions: ${flow.instructions}`;
+    });
+
+    try {
+      // Set flows to executing state
+      const newFlows = flows.map(flow =>
+        flow.approved ? { ...flow, status: 'executing' as const } : flow
+      );
+      setFlows(newFlows);
+
+      // Call parallel flows endpoint
+      console.log("Calling parallel flows endpoint with:", flowDescriptions);
+      const response = await fetch("http://localhost:8000/api/browser-cloud/parallel-flows", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          flows: flowDescriptions
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("Parallel flows created successfully:", data);
+
+      // Update flows with task IDs and start streaming
+      let taskIndex = 0;
+      const successFlows = flows.map(flow => {
+        if (flow.approved) {
+          const taskData = data.tasks[taskIndex];
+          const updatedFlow = {
+            ...flow,
+            status: 'running' as const,
+            taskId: taskData.task_id,
+            sessionId: taskData.session_id,
+            liveUrl: taskData.live_url
+          };
+
+          // Start streaming for this task
+          setTimeout(() => startTaskStreaming(taskData.task_id), 1000);
+          taskIndex++;
+
+          return updatedFlow;
+        }
+        return flow;
+      });
+      setFlows(successFlows);
+
+      // Set live sessions for embedding
+      const runningSessions = successFlows.filter(flow => flow.status === 'running');
+      setLiveSessions(runningSessions);
+
+      alert(`Successfully started ${data.total_tasks} browser sessions! They will appear below.`);
+
+    } catch (error) {
+      console.error("Failed to execute flows:", error);
+      alert(`Failed to execute flows: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      // Reset flows to approved state on error
+      const resetFlows = flows.map(flow =>
+        flow.approved ? { ...flow, status: 'approved' as const } : flow
+      );
+      setFlows(resetFlows);
+    }
   };
 
   const getApprovedFlows = () => flows.filter(flow => flow.approved);
+
+  // Start streaming logs for a task
+  const startTaskStreaming = (taskId: string) => {
+    if (activeStreams[taskId]) return; // Already streaming
+
+    try {
+      const eventSource = new EventSource(`http://localhost:8000/api/browser-cloud/task/${taskId}/stream`);
+
+      // Initialize logs for this task
+      setSessionLogs(prev => ({
+        ...prev,
+        [taskId]: { taskId, logs: [] }
+      }));
+
+      eventSource.onmessage = (event) => {
+        const logData = JSON.parse(event.data);
+
+        // Add log to session logs
+        setSessionLogs(prev => ({
+          ...prev,
+          [taskId]: {
+            ...prev[taskId],
+            logs: [...(prev[taskId]?.logs || []), {
+              type: logData.type,
+              timestamp: logData.timestamp,
+              data: logData
+            }]
+          }
+        }));
+
+        // Update live URL in flows when available
+        if (logData.type === 'status' && logData.live_url) {
+          setFlows(prevFlows =>
+            prevFlows.map(flow =>
+              flow.taskId === taskId
+                ? { ...flow, liveUrl: logData.live_url }
+                : flow
+            )
+          );
+
+          setLiveSessions(prevSessions =>
+            prevSessions.map(session =>
+              session.taskId === taskId
+                ? { ...session, liveUrl: logData.live_url }
+                : session
+            )
+          );
+        }
+
+        // Handle completion
+        if (logData.type === 'completion' || logData.type === 'error') {
+          eventSource.close();
+          setActiveStreams(prev => {
+            const newStreams = { ...prev };
+            delete newStreams[taskId];
+            return newStreams;
+          });
+
+          // Update status
+          const finalStatus = logData.type === 'completion' ? 'completed' : 'failed';
+          setFlows(prevFlows =>
+            prevFlows.map(flow =>
+              flow.taskId === taskId
+                ? { ...flow, status: finalStatus }
+                : flow
+            )
+          );
+        }
+      };
+
+      eventSource.onerror = () => {
+        eventSource.close();
+        setActiveStreams(prev => {
+          const newStreams = { ...prev };
+          delete newStreams[taskId];
+          return newStreams;
+        });
+      };
+
+      setActiveStreams(prev => ({ ...prev, [taskId]: eventSource }));
+    } catch (error) {
+      console.error('Failed to start streaming for task:', taskId, error);
+    }
+  };
 
   // --- ANIMATION VARIANTS ---
   const containerVariants = {
@@ -332,6 +498,176 @@ const HomePage: FC = () => {
           )}
         </AnimatePresence>
       </main>
+
+      {/* Live Browser Sessions */}
+      <AnimatePresence>
+        {liveSessions.length > 0 && (
+          <motion.div
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 50, opacity: 0 }}
+            className="mt-8 space-y-6"
+          >
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+              <Globe className="text-blue-500" />
+              Live Browser Sessions ({liveSessions.length})
+            </h2>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {liveSessions.map((session, index) => (
+                <motion.div
+                  key={session.taskId}
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden"
+                >
+                  {/* Session Header */}
+                  <div className="p-4 bg-gray-50 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-gray-800 truncate">{session.name}</h3>
+                        <p className="text-sm text-gray-600 truncate">{session.description}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs text-green-600 font-medium">LIVE</span>
+                        </div>
+                        <button
+                          onClick={() => setSelectedSessionLogs(session.taskId || null)}
+                          className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                        >
+                          View Logs
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Live Browser Iframe */}
+                  <div className="relative">
+                    {session.liveUrl ? (
+                      <iframe
+                        src={session.liveUrl}
+                        className="w-full h-96 border-0"
+                        title={`Live browser session: ${session.name}`}
+                        allow="camera; microphone; geolocation"
+                        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+                      />
+                    ) : (
+                      <div className="w-full h-96 bg-gray-100 flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                          <p className="text-gray-600">Loading browser session...</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Session Footer */}
+                  <div className="p-3 bg-gray-50 border-t border-gray-200">
+                    <div className="flex items-center justify-between text-xs text-gray-600">
+                      <span>Task ID: {session.taskId?.slice(0, 8)}...</span>
+                      <span>Status: {session.status}</span>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Session Logs Modal */}
+      <AnimatePresence>
+        {selectedSessionLogs && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+            onClick={() => setSelectedSessionLogs(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">Session Logs</h3>
+                  <p className="text-sm text-gray-600">Task ID: {selectedSessionLogs}</p>
+                </div>
+                <button
+                  onClick={() => setSelectedSessionLogs(null)}
+                  className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Logs Content */}
+              <div className="p-4 max-h-96 overflow-y-auto">
+                {sessionLogs[selectedSessionLogs]?.logs.length > 0 ? (
+                  <div className="space-y-3">
+                    {sessionLogs[selectedSessionLogs].logs.map((log, index) => (
+                      <div
+                        key={index}
+                        className={`p-3 rounded-lg text-sm ${log.type === 'step' ? 'bg-blue-50 border-blue-200' :
+                          log.type === 'status' ? 'bg-yellow-50 border-yellow-200' :
+                            log.type === 'completion' ? 'bg-green-50 border-green-200' :
+                              'bg-red-50 border-red-200'
+                          } border`}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="font-medium capitalize text-gray-800">{log.type}</span>
+                          <span className="text-xs text-gray-500">
+                            {new Date(log.timestamp).toLocaleTimeString()}
+                          </span>
+                        </div>
+
+                        {log.type === 'step' && log.data.step && (
+                          <div className="space-y-1">
+                            <p><strong>Goal:</strong> {log.data.step.next_goal}</p>
+                            {log.data.step.evaluation_previous_goal && (
+                              <p><strong>Evaluation:</strong> {log.data.step.evaluation_previous_goal}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {log.type === 'status' && (
+                          <div className="space-y-1">
+                            <p><strong>Status:</strong> {log.data.status}</p>
+                            <p><strong>Steps:</strong> {log.data.steps_count}</p>
+                          </div>
+                        )}
+
+                        {log.type === 'completion' && (
+                          <div>
+                            <p><strong>Final Status:</strong> {log.data.status}</p>
+                            {log.data.output && <p><strong>Output:</strong> {log.data.output}</p>}
+                          </div>
+                        )}
+
+                        {log.type === 'error' && (
+                          <p className="text-red-700">{log.data.error}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No logs available yet...</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* "Run Selected" Button */}
       <AnimatePresence>

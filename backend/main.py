@@ -525,6 +525,15 @@ class BrowserCloudTaskResponse(BaseModel):
     live_url: Optional[str] = None
     status: str
 
+class ParallelBrowserFlowRequest(BaseModel):
+    flows: List[str]  # List of natural language task descriptions
+    metadata: Optional[Dict[str, Any]] = None
+
+class ParallelBrowserFlowResponse(BaseModel):
+    batch_id: str
+    tasks: List[BrowserCloudTaskResponse]
+    total_tasks: int
+
 # Browser Use Cloud endpoints
 @app.post("/api/browser-cloud/create-task", response_model=BrowserCloudTaskResponse)
 async def create_browser_cloud_task(request: BrowserCloudTaskRequest):
@@ -615,6 +624,164 @@ async def get_browser_cloud_task_status(task_id: str):
     except Exception as e:
         logger.error(f"Failed to get Browser Use Cloud task status: {str(e)}")
         raise HTTPException(status_code=404, detail=f"Task not found or error: {str(e)}")
+
+@app.post("/api/browser-cloud/parallel-flows", response_model=ParallelBrowserFlowResponse)
+async def create_parallel_browser_flows(request: ParallelBrowserFlowRequest):
+    """Create multiple browser tasks in parallel - inspired by project_summary.md example"""
+    logger.info(f"Creating {len(request.flows)} parallel Browser Use Cloud tasks")
+    
+    if not BROWSER_USE_API_KEY:
+        raise HTTPException(
+            status_code=503, 
+            detail="Browser Use Cloud API key not configured. Please check BROWSER_USE_API_KEY."
+        )
+    
+    try:
+        import requests
+        import asyncio
+        import uuid
+        
+        batch_id = str(uuid.uuid4())
+        
+        async def create_single_task(flow: str) -> BrowserCloudTaskResponse:
+            """Create a single browser task - keep it simple like project_summary.md"""
+            api_url = "https://api.browser-use.com/api/v1/run-task"
+            headers = {
+                "Authorization": f"Bearer {BROWSER_USE_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            
+            payload = {"task": flow}
+            
+            # Use requests in thread pool for async behavior
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None, 
+                lambda: requests.post(api_url, headers=headers, json=payload)
+            )
+            response.raise_for_status()
+            
+            task_data = response.json()
+            task_id = task_data["id"]
+            
+            logger.info(f"Created Browser Use Cloud task: {task_id} for flow: {flow[:50]}...")
+            
+            return BrowserCloudTaskResponse(
+                task_id=task_id,
+                session_id=task_id,
+                live_url=None,  # Will be available after task starts
+                status="started"
+            )
+        
+        # Create all tasks in parallel - just like project_summary.md example
+        # await asyncio.gather(*[agent.run() for agent in agents])
+        tasks = await asyncio.gather(*[create_single_task(flow) for flow in request.flows])
+        
+        logger.info(f"Successfully created {len(tasks)} parallel Browser Use Cloud tasks")
+        
+        return ParallelBrowserFlowResponse(
+            batch_id=batch_id,
+            tasks=tasks,
+            total_tasks=len(tasks)
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to create parallel Browser Use Cloud tasks: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Parallel task creation failed: {str(e)}")
+
+@app.get("/api/browser-cloud/task/{task_id}/stream")
+async def stream_browser_task_logs(task_id: str):
+    """Stream real-time task logs and status updates"""
+    if not BROWSER_USE_API_KEY:
+        raise HTTPException(
+            status_code=503, 
+            detail="Browser Use Cloud API key not configured. Please check BROWSER_USE_API_KEY."
+        )
+    
+    async def generate_task_stream():
+        """Generate Server-Sent Events stream for task monitoring"""
+        import requests
+        import time
+        
+        previous_steps_count = 0
+        task_completed = False
+        
+        while not task_completed:
+            try:
+                # Get current task status
+                api_url = f"https://api.browser-use.com/api/v1/task/{task_id}"
+                headers = {
+                    "Authorization": f"Bearer {BROWSER_USE_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+                
+                response = requests.get(api_url, headers=headers)
+                response.raise_for_status()
+                
+                task_data = response.json()
+                current_status = task_data.get("status", "unknown")
+                current_steps = task_data.get("steps", [])
+                
+                # Stream new steps
+                if len(current_steps) > previous_steps_count:
+                    new_steps = current_steps[previous_steps_count:]
+                    for step in new_steps:
+                        step_data = {
+                            "type": "step",
+                            "task_id": task_id,
+                            "step": step,
+                            "timestamp": datetime.now().isoformat()
+                        }
+                        yield f"data: {json.dumps(step_data)}\n\n"
+                    
+                    previous_steps_count = len(current_steps)
+                
+                # Stream status updates
+                status_data = {
+                    "type": "status",
+                    "task_id": task_id,
+                    "status": current_status,
+                    "live_url": task_data.get("live_url"),
+                    "steps_count": len(current_steps),
+                    "timestamp": datetime.now().isoformat()
+                }
+                yield f"data: {json.dumps(status_data)}\n\n"
+                
+                # Check if task is completed
+                if current_status in ["finished", "failed", "stopped"]:
+                    final_data = {
+                        "type": "completion",
+                        "task_id": task_id,
+                        "status": current_status,
+                        "output": task_data.get("output"),
+                        "timestamp": datetime.now().isoformat()
+                    }
+                    yield f"data: {json.dumps(final_data)}\n\n"
+                    task_completed = True
+                    break
+                
+                await asyncio.sleep(2)  # Poll every 2 seconds
+                
+            except Exception as e:
+                error_data = {
+                    "type": "error",
+                    "task_id": task_id,
+                    "error": str(e),
+                    "timestamp": datetime.now().isoformat()
+                }
+                yield f"data: {json.dumps(error_data)}\n\n"
+                break
+    
+    return StreamingResponse(
+        generate_task_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 @app.post("/api/browser/test")
 async def test_browser_functionality():
