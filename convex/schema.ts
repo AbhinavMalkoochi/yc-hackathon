@@ -3,8 +3,10 @@ import { v } from "convex/values";
 
 // AI Browser Testing Agent Database Schema
 export default defineSchema({
-  // Test Sessions - Main entity for tracking test executions
+  // Test Sessions - Main entity for tracking test executions (now user-specific)
   testSessions: defineTable({
+    userId: v.optional(v.string()), // Clerk user ID - optional for migration
+    userEmail: v.optional(v.string()), // User email for easy identification - optional for migration
     name: v.string(),
     prompt: v.string(), // Original user prompt
     status: v.union(
@@ -27,10 +29,11 @@ export default defineSchema({
         errorMessage: v.optional(v.string()),
       }),
     ),
-  }),
+  }).index("by_userId", ["userId"]),
 
-  // Testing Flows - Individual test scenarios within a session
+  // Testing Flows - Individual test scenarios within a session (now user-specific)
   testFlows: defineTable({
+    userId: v.optional(v.string()), // Clerk user ID - optional for migration
     sessionId: v.id("testSessions"),
     name: v.string(),
     description: v.string(),
@@ -55,10 +58,13 @@ export default defineSchema({
         screenshots: v.optional(v.array(v.string())), // URLs or base64
       }),
     ),
-  }).index("by_sessionId", ["sessionId"]),
+  })
+    .index("by_sessionId", ["sessionId"])
+    .index("by_userId", ["userId"]),
 
-  // Browser Sessions - Track individual browser instances
+  // Browser Sessions - Track individual browser instances (now user-specific)
   browserSessions: defineTable({
+    userId: v.optional(v.string()), // Clerk user ID - optional for migration
     sessionId: v.id("testSessions"),
     flowId: v.id("testFlows"),
     browserType: v.string(), // e.g., "chrome", "firefox"
@@ -87,10 +93,13 @@ export default defineSchema({
         processId: v.optional(v.string()),
       }),
     ),
-  }).index("by_sessionId", ["sessionId"]),
+  })
+    .index("by_sessionId", ["sessionId"])
+    .index("by_userId", ["userId"]),
 
-  // Execution Logs - Detailed logs for debugging and monitoring
+  // Execution Logs - Detailed logs for debugging and monitoring (now user-specific)
   executionLogs: defineTable({
+    userId: v.optional(v.string()), // Clerk user ID - optional for migration
     sessionId: v.id("testSessions"),
     flowId: v.optional(v.id("testFlows")),
     browserSessionId: v.optional(v.id("browserSessions")),
@@ -103,9 +112,11 @@ export default defineSchema({
     message: v.string(),
     timestamp: v.string(),
     data: v.optional(v.any()), // Additional structured data
-  }).index("by_sessionId", ["sessionId"]),
+  })
+    .index("by_sessionId", ["sessionId"])
+    .index("by_userId", ["userId"]),
 
-  // System Stats - For monitoring and analytics
+  // System Stats - For monitoring and analytics (global)
   systemStats: defineTable({
     timestamp: v.string(),
     activeSessions: v.number(),

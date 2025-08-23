@@ -14,7 +14,9 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as browserTesting from "../browserTesting.js";
+import type * as http from "../http.js";
 import type * as myFunctions from "../myFunctions.js";
+import type * as userSessions from "../userSessions.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -26,7 +28,9 @@ import type * as myFunctions from "../myFunctions.js";
  */
 declare const fullApi: ApiFromModules<{
   browserTesting: typeof browserTesting;
+  http: typeof http;
   myFunctions: typeof myFunctions;
+  userSessions: typeof userSessions;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,

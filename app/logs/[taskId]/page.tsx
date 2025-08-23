@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, RefreshCw, Play, Pause, X, Globe, Activity, FileText, Network, Terminal } from 'lucide-react';
+import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
+import { SignInButton, UserButton } from "@clerk/nextjs";
 
 interface SessionLog {
   taskId: string;
@@ -25,15 +27,53 @@ interface NetworkLog {
   headers: Record<string, string>;
 }
 
-const LogsPage = () => {
+// Authentication Loading Component
+function AuthLoadingScreen() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto mb-4"></div>
+        <h2 className="text-xl font-semibold text-gray-700">Loading...</h2>
+        <p className="text-gray-500 mt-2">Checking authentication status</p>
+      </div>
+    </div>
+  );
+}
+
+// Unauthenticated Component
+function UnauthenticatedScreen() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-center max-w-md">
+        <h1 className="text-3xl font-bold text-gray-800 mb-4">Session Details</h1>
+        <p className="text-lg text-gray-600 mb-8">
+          Sign in to view detailed browser session logs and analytics.
+        </p>
+
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-8">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Authentication Required</h2>
+          <p className="text-gray-600 mb-6">Please sign in to access session details</p>
+
+          <SignInButton mode="modal">
+            <button className="w-full px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium">
+              Sign In to Continue
+            </button>
+          </SignInButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const LogsPageContent = () => {
   const params = useParams();
   const searchParams = useSearchParams();
   const taskId = params.taskId as string;
-  
+
   // Session info from URL params
   const sessionName = searchParams.get('name') || 'Unknown Session';
   const sessionDescription = searchParams.get('description') || 'No description available';
-  
+
   // State management
   const [sessionDetails, setSessionDetails] = useState<any>(null);
   const [sessionLogs, setSessionLogs] = useState<SessionLog | null>(null);
@@ -42,7 +82,7 @@ const LogsPage = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [eventSource, setEventSource] = useState<EventSource | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  
+
   const logsEndRef = useRef<HTMLDivElement>(null);
   const networkEndRef = useRef<HTMLDivElement>(null);
 
@@ -51,10 +91,10 @@ const LogsPage = () => {
     try {
       const response = await fetch(`http://localhost:8000/api/browser-cloud/task/${taskId}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
+
       const details = await response.json();
       setSessionDetails(details);
-      
+
       // Extract network logs from steps if available
       if (details.steps) {
         const extractedNetworkLogs: NetworkLog[] = [];
@@ -84,7 +124,7 @@ const LogsPage = () => {
   // Start streaming logs
   const startStreaming = () => {
     if (eventSource) return;
-    
+
     try {
       const es = new EventSource(`http://localhost:8000/api/browser-cloud/task/${taskId}/stream`);
       setEventSource(es);
@@ -95,7 +135,7 @@ const LogsPage = () => {
 
       es.onmessage = (event) => {
         const logData = JSON.parse(event.data);
-        
+
         setSessionLogs(prev => ({
           ...prev!,
           logs: [...(prev?.logs || []), {
@@ -142,7 +182,7 @@ const LogsPage = () => {
   useEffect(() => {
     fetchSessionDetails();
     startStreaming();
-    
+
     // Auto-refresh session details
     const interval = setInterval(() => {
       if (autoRefresh) {
@@ -217,20 +257,20 @@ const LogsPage = () => {
                 <p className="text-sm text-gray-500">{sessionDescription}</p>
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-3">
+              <UserButton afterSignOutUrl="/" />
               <button
                 onClick={toggleAutoRefresh}
-                className={`px-3 py-1 text-xs rounded-full transition-colors ${
-                  autoRefresh 
-                    ? 'bg-green-100 text-green-700' 
-                    : 'bg-gray-100 text-gray-700'
-                }`}
+                className={`px-3 py-1 text-xs rounded-full transition-colors ${autoRefresh
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-gray-100 text-gray-700'
+                  }`}
               >
                 <RefreshCw size={14} className={`inline mr-1 ${autoRefresh ? 'animate-spin' : ''}`} />
                 Auto-refresh {autoRefresh ? 'ON' : 'OFF'}
               </button>
-              
+
               {isStreaming ? (
                 <button
                   onClick={stopStreaming}
@@ -300,11 +340,10 @@ const LogsPage = () => {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 transition-colors ${
-                      activeTab === tab.id
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 transition-colors ${activeTab === tab.id
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
                   >
                     <Icon size={16} />
                     <span>{tab.label}</span>
@@ -404,7 +443,7 @@ const LogsPage = () => {
                       {sessionLogs?.logs.length || 0} entries
                     </div>
                   </div>
-                  
+
                   <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
                     {sessionLogs?.logs.length ? (
                       <div className="space-y-3">
@@ -419,7 +458,7 @@ const LogsPage = () => {
                                 {new Date(log.timestamp).toLocaleTimeString()}
                               </span>
                             </div>
-                            
+
                             {log.type === 'step' && log.data.step && (
                               <div className="space-y-1">
                                 <p><strong>Goal:</strong> {log.data.step.next_goal}</p>
@@ -428,21 +467,21 @@ const LogsPage = () => {
                                 )}
                               </div>
                             )}
-                            
+
                             {log.type === 'status' && (
                               <div className="space-y-1">
                                 <p><strong>Status:</strong> {log.data.status}</p>
                                 <p><strong>Steps:</strong> {log.data.steps_count}</p>
                               </div>
                             )}
-                            
+
                             {log.type === 'completion' && (
                               <div>
                                 <p><strong>Final Status:</strong> {log.data.status}</p>
                                 {log.data.output && <p><strong>Output:</strong> {log.data.output}</p>}
                               </div>
                             )}
-                            
+
                             {log.type === 'error' && (
                               <p className="text-red-700">{log.data.error}</p>
                             )}
@@ -473,7 +512,7 @@ const LogsPage = () => {
                       {networkLogs.length} requests
                     </div>
                   </div>
-                  
+
                   <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
                     {networkLogs.length ? (
                       <div className="space-y-3">
@@ -492,7 +531,7 @@ const LogsPage = () => {
                                 {new Date(log.timestamp).toLocaleTimeString()}
                               </span>
                             </div>
-                            
+
                             <div className="space-y-1 text-sm">
                               <p><strong>URL:</strong> <span className="font-mono break-all">{log.url}</span></p>
                               <div className="flex space-x-4 text-xs text-gray-600">
@@ -531,7 +570,7 @@ const LogsPage = () => {
                       {sessionDetails?.steps?.length || 0} steps
                     </div>
                   </div>
-                  
+
                   <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
                     {sessionDetails?.steps?.length ? (
                       <div className="space-y-3">
@@ -587,6 +626,22 @@ const LogsPage = () => {
         </div>
       </main>
     </div>
+  );
+};
+
+const LogsPage = () => {
+  return (
+    <>
+      <AuthLoading>
+        <AuthLoadingScreen />
+      </AuthLoading>
+      <Unauthenticated>
+        <UnauthenticatedScreen />
+      </Unauthenticated>
+      <Authenticated>
+        <LogsPageContent />
+      </Authenticated>
+    </>
   );
 };
 

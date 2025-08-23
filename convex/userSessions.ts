@@ -1,15 +1,10 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
 
-// ==================== TEST SESSIONS ====================
-
-// Query: Get all test sessions for authenticated user
-export const listTestSessions = query({
-  args: {
-    limit: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
+// Query: Get user sessions for authenticated user
+export const getUserSessions = query({
+  args: {},
+  handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (identity === null) {
       throw new Error("Not authenticated");
@@ -19,17 +14,15 @@ export const listTestSessions = query({
       .query("testSessions")
       .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
       .order("desc")
-      .take(args.limit ?? 50);
+      .collect();
 
     return sessions;
   },
 });
 
-// Query: Get a specific test session for authenticated user
-export const getTestSession = query({
-  args: {
-    sessionId: v.id("testSessions"),
-  },
+// Query: Get specific user session with flows
+export const getUserSession = query({
+  args: { sessionId: v.id("testSessions") },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (identity === null) {
@@ -37,7 +30,7 @@ export const getTestSession = query({
     }
 
     const session = await ctx.db.get(args.sessionId);
-    if (!session || (session.userId && session.userId !== identity.subject)) {
+    if (!session || session.userId !== identity.subject) {
       throw new Error("Session not found or access denied");
     }
 
@@ -55,8 +48,8 @@ export const getTestSession = query({
   },
 });
 
-// Mutation: Create a new test session for authenticated user
-export const createTestSession = mutation({
+// Mutation: Create new user session
+export const createUserSession = mutation({
   args: {
     name: v.string(),
     prompt: v.string(),
@@ -92,8 +85,8 @@ export const createTestSession = mutation({
   },
 });
 
-// Mutation: Update test session status for authenticated user
-export const updateTestSessionStatus = mutation({
+// Mutation: Update session status
+export const updateUserSessionStatus = mutation({
   args: {
     sessionId: v.id("testSessions"),
     status: v.union(
@@ -119,7 +112,7 @@ export const updateTestSessionStatus = mutation({
     }
 
     const session = await ctx.db.get(args.sessionId);
-    if (!session || (session.userId && session.userId !== identity.subject)) {
+    if (!session || session.userId !== identity.subject) {
       throw new Error("Session not found or access denied");
     }
 
@@ -154,37 +147,8 @@ export const updateTestSessionStatus = mutation({
   },
 });
 
-// ==================== TEST FLOWS ====================
-
-// Query: Get flows for a session (authenticated user only)
-export const getSessionFlows = query({
-  args: {
-    sessionId: v.id("testSessions"),
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (identity === null) {
-      throw new Error("Not authenticated");
-    }
-
-    // Verify user owns the session
-    const session = await ctx.db.get(args.sessionId);
-    if (!session || (session.userId && session.userId !== identity.subject)) {
-      throw new Error("Session not found or access denied");
-    }
-
-    const flows = await ctx.db
-      .query("testFlows")
-      .withIndex("by_sessionId", (q) => q.eq("sessionId", args.sessionId))
-      .order("asc")
-      .collect();
-
-    return flows;
-  },
-});
-
-// Mutation: Create test flows for a session (authenticated user only)
-export const createTestFlows = mutation({
+// Mutation: Create test flows for a session
+export const createUserSessionFlows = mutation({
   args: {
     sessionId: v.id("testSessions"),
     flows: v.array(
@@ -201,9 +165,8 @@ export const createTestFlows = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Verify user owns the session
     const session = await ctx.db.get(args.sessionId);
-    if (!session || (session.userId && session.userId !== identity.subject)) {
+    if (!session || session.userId !== identity.subject) {
       throw new Error("Session not found or access denied");
     }
 
@@ -244,68 +207,52 @@ export const createTestFlows = mutation({
   },
 });
 
-// Mutation: Update flow approval status (authenticated user only)
-export const updateFlowApproval = mutation({
-  args: {
-    flowId: v.id("testFlows"),
-    approved: v.boolean(),
-  },
+// Mutation: Delete user session
+export const deleteUserSession = mutation({
+  args: { sessionId: v.id("testSessions") },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (identity === null) {
       throw new Error("Not authenticated");
     }
 
-    const flow = await ctx.db.get(args.flowId);
-    if (!flow || (flow.userId && flow.userId !== identity.subject)) {
-      throw new Error("Flow not found or access denied");
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.userId !== identity.subject) {
+      throw new Error("Session not found or access denied");
     }
 
-    await ctx.db.patch(args.flowId, {
-      approved: args.approved,
-      status: args.approved ? "approved" : "pending",
-    });
+    // Delete associated flows
+    const flows = await ctx.db
+      .query("testFlows")
+      .withIndex("by_sessionId", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
 
-    // Log approval change
+    for (const flow of flows) {
+      await ctx.db.delete(flow._id);
+    }
+
+    // Delete associated browser sessions
+    const browserSessions = await ctx.db
+      .query("browserSessions")
+      .withIndex("by_sessionId", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+
+    for (const browserSession of browserSessions) {
+      await ctx.db.delete(browserSession._id);
+    }
+
+    // Delete the session
+    await ctx.db.delete(args.sessionId);
+
+    // Log session deletion
     await ctx.db.insert("executionLogs", {
       userId: identity.subject,
-      sessionId: flow.sessionId,
-      flowId: args.flowId,
+      sessionId: args.sessionId,
       level: "info",
-      message: `Flow ${args.approved ? "approved" : "unapproved"}: ${flow.name}`,
+      message: `Session deleted: ${session.name}`,
       timestamp: new Date().toISOString(),
-      data: { approved: args.approved },
     });
 
-    return args.flowId;
-  },
-});
-
-// ==================== STATISTICS ====================
-
-// Query: Get current system stats (public)
-export const getSystemStats = query({
-  args: {},
-  handler: async (ctx) => {
-    // Get latest stats entry
-    const latestStats = await ctx.db.query("systemStats").order("desc").first();
-
-    // Calculate current stats
-    const activeSessions = await ctx.db
-      .query("testSessions")
-      .filter((q) => q.eq(q.field("status"), "running"))
-      .collect();
-
-    const activeBrowsers = await ctx.db
-      .query("browserSessions")
-      .filter((q) => q.eq(q.field("status"), "running"))
-      .collect();
-
-    return {
-      activeSessions: activeSessions.length,
-      activeBrowsers: activeBrowsers.length,
-      lastUpdated: new Date().toISOString(),
-      historical: latestStats,
-    };
+    return args.sessionId;
   },
 });

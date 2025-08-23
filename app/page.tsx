@@ -1,11 +1,16 @@
 "use client";
 
-import { useState, FC, useMemo } from 'react';
+import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
+import { SignInButton, UserButton } from "@clerk/nextjs";
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowUp, Check, Edit3, Globe, KeyRound, Trash2, Type,
-  Bot, BarChart3, Feather, Share2, Play, Clock, CheckCircle2, AlertCircle, X, Plus
+  Bot, BarChart3, Feather, Share2, Play, Clock, CheckCircle2, AlertCircle, X, Plus,
+  Menu, ChevronRight, Settings
 } from 'lucide-react';
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../convex/_generated/api";
 import { generateFlows } from "../lib/api";
 
 interface TestFlow {
@@ -40,45 +45,114 @@ const flowIcons = {
 };
 
 const getFlowIcon = (flowName: string) => {
-  // Try to match flow name with predefined icons
   for (const [key, icon] of Object.entries(flowIcons)) {
     if (flowName.toLowerCase().includes(key.toLowerCase().split(' ')[0])) {
       return icon;
     }
   }
-  // Default icon
   return <Bot size={20} />;
 };
 
+// Authentication Loading Component
+function AuthLoadingScreen() {
+  return (
+    <div className="relative flex flex-col items-center justify-center w-full min-h-screen p-4 font-sans text-gray-800 bg-[#F7F2ED]">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto mb-4"></div>
+        <h2 className="text-xl font-semibold text-gray-700">Loading...</h2>
+        <p className="text-gray-500 mt-2">Checking authentication status</p>
+      </div>
+    </div>
+  );
+}
 
+// Unauthenticated Component
+function UnauthenticatedScreen() {
+  return (
+    <div className="relative flex flex-col items-center justify-center w-full min-h-screen p-4 font-sans text-gray-800 bg-[#F7F2ED]">
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
+        <div className="absolute -top-1/4 -left-1/4 w-1/2 h-1/2 bg-rose-200/30 rounded-full filter blur-3xl animate-blob"></div>
+        <div className="absolute bottom-0 right-0 w-2/3 h-2/3 bg-blue-200/30 rounded-full filter blur-3xl animate-blob animation-delay-4000"></div>
+      </div>
 
-const HomePage: FC = () => {
+      <div className="relative z-10 text-center max-w-md">
+        <h1 className="text-4xl font-bold text-gray-800 mb-4">AI Browser Testing Agent</h1>
+        <p className="text-lg text-gray-600 mb-8">
+          Intelligent browser automation powered by AI. Generate, edit, and execute browser tests using natural language descriptions.
+        </p>
+
+        <div className="bg-white/60 border border-white/80 rounded-2xl shadow-xl shadow-black/5 backdrop-blur-2xl p-8">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Get Started</h2>
+          <p className="text-gray-600 mb-6">Sign in to create and manage your browser testing flows</p>
+
+          <SignInButton mode="modal">
+            <button className="w-full px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium">
+              Sign In to Continue
+            </button>
+          </SignInButton>
+        </div>
+      </div>
+
+      <style jsx global>{`
+        @keyframes blob {
+          0% { transform: translate(0px, 0px) scale(1); }
+          33% { transform: translate(30px, -50px) scale(1.1); }
+          66% { transform: translate(-20px, 20px) scale(0.9); }
+          100% { transform: translate(0px, 0px) scale(1); }
+        }
+        .animate-blob { animation: blob 10s infinite; }
+        .animation-delay-4000 { animation-delay: -4s; }
+      `}</style>
+    </div>
+  );
+}
+
+// Main Authenticated Content Component
+function AuthenticatedContent() {
   const [prompt, setPrompt] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [flows, setFlows] = useState<TestFlow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [conversationHistory, setConversationHistory] = useState<Array<{
-    type: 'user' | 'assistant';
-    content: string;
-    flows?: TestFlow[];
-    timestamp: Date;
-  }>>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Live session management
   const [liveSessions, setLiveSessions] = useState<TestFlow[]>([]);
   const [activeStreams, setActiveStreams] = useState<Record<string, EventSource>>({});
-  const [selectedSessionDetails, setSelectedSessionDetails] = useState<string | null>(null);
-  const [sessionDetails, setSessionDetails] = useState<Record<string, any>>({});
 
   // Flow editing state
   const [editingFlow, setEditingFlow] = useState<number | null>(null);
   const [editingFlowData, setEditingFlowData] = useState<TestFlow | null>(null);
 
-  // Debug effect to log state changes
-  console.log("Current selectedSessionDetails:", selectedSessionDetails);
+  // Convex queries and mutations
+  const userSessions = useQuery(api.browserTesting.listTestSessions, { limit: 20 });
+  const currentSession = useQuery(
+    api.browserTesting.getTestSession,
+    currentSessionId ? { sessionId: currentSessionId as any } : "skip"
+  );
+
+  const createSession = useMutation(api.browserTesting.createTestSession);
+  const createFlows = useMutation(api.browserTesting.createTestFlows);
+  const updateSessionStatus = useMutation(api.browserTesting.updateTestSessionStatus);
+  const updateFlowApproval = useMutation(api.browserTesting.updateFlowApproval);
+
+  // Load flows from current session
+  useEffect(() => {
+    if (currentSession?.flows) {
+      const sessionFlows = currentSession.flows.map((flow: any) => ({
+        name: flow.name,
+        description: flow.description,
+        instructions: flow.instructions,
+        approved: flow.approved,
+        status: flow.status,
+        estimatedTime: Math.max(20, Math.min(60, flow.instructions.split('\n').length * 10))
+      }));
+      setFlows(sessionFlows);
+    }
+  }, [currentSession]);
 
   // --- MEMOIZED VALUES ---
-  const approvedFlows = useMemo(() => flows.filter(f => f.status === 'approved'), [flows]);
+  const approvedFlows = useMemo(() => flows.filter(f => f.status === 'approved' || f.approved), [flows]);
   const selectedFlows = useMemo(() => flows.filter(f => f.approved).map(f => flows.indexOf(f)), [flows]);
   const hasSelection = useMemo(() => selectedFlows.length > 0, [selectedFlows]);
   const showFlows = useMemo(() => flows.length > 0, [flows]);
@@ -90,84 +164,104 @@ const HomePage: FC = () => {
     const userMessage = prompt.trim();
     const currentWebsiteUrl = websiteUrl.trim();
 
-    if (!currentWebsiteUrl) return; // Require both prompt and URL
+    if (!currentWebsiteUrl) return;
 
-    // Add user message to conversation
-    setConversationHistory(prev => [...prev, {
-      type: 'user',
-      content: `${userMessage}${currentWebsiteUrl ? ` (Website: ${currentWebsiteUrl})` : ''}`,
-      timestamp: new Date()
-    }]);
-
-    setPrompt("");
     setLoading(true);
 
     try {
+      // Create a new session in Convex
+      const sessionId = await createSession({
+        name: `Test: ${userMessage.slice(0, 50)}...`,
+        prompt: `${userMessage} (Website: ${currentWebsiteUrl})`
+      });
+
+      setCurrentSessionId(sessionId);
+
+      // Update session status to generating
+      await updateSessionStatus({
+        sessionId,
+        status: "generating"
+      });
+
+      // Generate flows using the API
       const response = await generateFlows(userMessage, currentWebsiteUrl) as GenerationResponse;
 
       if (response.status === "success") {
+        // Save flows to Convex
+        await createFlows({
+          sessionId,
+          flows: response.flows.map(flow => ({
+            name: flow.name,
+            description: flow.description,
+            instructions: flow.instructions
+          }))
+        });
+
+        // Update session status to ready
+        await updateSessionStatus({
+          sessionId,
+          status: "ready"
+        });
+
+        // Set flows in local state
         const flowsWithDefaults = response.flows.map((flow: TestFlow) => ({
           ...flow,
           approved: false,
           status: 'pending' as const,
           estimatedTime: Math.max(20, Math.min(60, flow.instructions.split('\n').length * 10))
         }));
-
         setFlows(flowsWithDefaults);
 
-        // Add assistant response to conversation
-        setConversationHistory(prev => [...prev, {
-          type: 'assistant',
-          content: `I've generated ${response.flows.length} test flows for your request. You can review, edit, and approve them below.`,
-          flows: flowsWithDefaults,
-          timestamp: new Date()
-        }]);
       } else {
-        // Add error response to conversation
-        setConversationHistory(prev => [...prev, {
-          type: 'assistant',
-          content: `I encountered an error: ${response.message}. Please try again or check your configuration.`,
-          timestamp: new Date()
-        }]);
+        await updateSessionStatus({
+          sessionId,
+          status: "failed",
+          metadata: { errorMessage: response.message }
+        });
+        alert(`Error: ${response.message}`);
       }
     } catch (error) {
-      setConversationHistory(prev => [...prev, {
-        type: 'assistant',
-        content: `I'm sorry, I encountered an error while generating your test flows. Please try again.`,
-        timestamp: new Date()
-      }]);
+      console.error("Failed to generate flows:", error);
+      if (currentSessionId) {
+        await updateSessionStatus({
+          sessionId: currentSessionId as any,
+          status: "failed",
+          metadata: { errorMessage: "Failed to generate flows" }
+        });
+      }
+      alert("Failed to generate flows. Please try again.");
     } finally {
       setLoading(false);
+      setPrompt("");
+      setWebsiteUrl("");
     }
   };
 
-  const toggleFlowApproval = (index: number) => {
-    const newFlows = [...flows];
-    newFlows[index].approved = !newFlows[index].approved;
-    newFlows[index].status = newFlows[index].approved ? 'approved' : 'pending';
-    setFlows(newFlows);
+  const handleSessionClick = (sessionId: string) => {
+    setCurrentSessionId(sessionId);
+    setLiveSessions([]); // Clear live sessions when switching
   };
 
-  const approveAllFlows = () => {
-    const newFlows = flows.map(flow => ({
-      ...flow,
-      approved: true,
-      status: 'approved' as const
-    }));
-    setFlows(newFlows);
-  };
+  const toggleFlowApproval = async (index: number) => {
+    if (!currentSession?.flows?.[index]) return;
 
-  // --- NEW FLOW ACTION HANDLERS ---
-  const handleFlowAction = (index: number, newStatus: 'approved' | 'declined') => {
-    const newFlows = [...flows];
-    if (newStatus === 'approved') {
-      newFlows[index].approved = true;
-      newFlows[index].status = 'approved';
-    } else {
-      newFlows[index].approved = false;
-      newFlows[index].status = 'pending';
+    const flow = currentSession.flows[index];
+    const newApproved = !flow.approved;
+
+    try {
+      await updateFlowApproval({
+        flowId: flow._id,
+        approved: newApproved
+      });
+
+      // Update local state
+      const newFlows = [...flows];
+      newFlows[index].approved = newApproved;
+      newFlows[index].status = newApproved ? 'approved' : 'pending';
+      setFlows(newFlows);
+    } catch (error) {
+      console.error("Failed to update flow approval:", error);
     }
-    setFlows(newFlows);
   };
 
   const handleSelectFlow = (index: number) => {
@@ -251,8 +345,6 @@ const HomePage: FC = () => {
     }
   };
 
-  const getApprovedFlows = () => flows.filter(flow => flow.approved);
-
   // Flow editing functions
   const startEditingFlow = (index: number) => {
     setEditingFlow(index);
@@ -295,27 +387,6 @@ const HomePage: FC = () => {
     setEditingFlowData(newFlow);
   };
 
-  // Fetch detailed session information
-  const fetchSessionDetails = async (taskId: string) => {
-    try {
-      const response = await fetch(`http://localhost:8000/api/browser-cloud/task/${taskId}`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const details = await response.json();
-      setSessionDetails(prev => ({
-        ...prev,
-        [taskId]: details
-      }));
-
-      return details;
-    } catch (error) {
-      console.error('Failed to fetch session details:', error);
-      return null;
-    }
-  };
-
   // Start streaming logs for a task
   const startTaskStreaming = (taskId: string) => {
     if (activeStreams[taskId]) return; // Already streaming
@@ -323,12 +394,8 @@ const HomePage: FC = () => {
     try {
       const eventSource = new EventSource(`http://localhost:8000/api/browser-cloud/task/${taskId}/stream`);
 
-
-
       eventSource.onmessage = (event) => {
         const logData = JSON.parse(event.data);
-
-
 
         // Update live URL in flows when available
         if (logData.type === 'status' && logData.live_url) {
@@ -385,608 +452,371 @@ const HomePage: FC = () => {
     }
   };
 
-  // --- ANIMATION VARIANTS ---
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1, delayChildren: 0.2 }
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-gray-100 text-gray-800';
+      case 'generating': return 'bg-blue-100 text-blue-800';
+      case 'ready': return 'bg-green-100 text-green-800';
+      case 'running': return 'bg-yellow-100 text-yellow-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'failed': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: { y: 0, opacity: 1, transition: { type: 'spring' as const, stiffness: 100 } }
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed': return <CheckCircle2 size={16} className="text-green-600" />;
+      case 'running': return <Clock size={16} className="text-yellow-600" />;
+      case 'failed': return <AlertCircle size={16} className="text-red-600" />;
+      default: return <Clock size={16} className="text-gray-600" />;
+    }
   };
 
-  // --- RENDER ---
   return (
-    <div className="relative flex flex-col items-center w-full min-h-screen p-4 pt-24 overflow-y-auto font-sans text-gray-800 bg-[#F7F2ED]">
+    <div className="flex h-screen bg-[#F7F2ED] font-sans text-gray-800">
       {/* Background Elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
         <div className="absolute -top-1/4 -left-1/4 w-1/2 h-1/2 bg-rose-200/30 rounded-full filter blur-3xl animate-blob"></div>
         <div className="absolute bottom-0 right-0 w-2/3 h-2/3 bg-blue-200/30 rounded-full filter blur-3xl animate-blob animation-delay-4000"></div>
       </div>
 
-      {/* Header */}
-      <header className="absolute top-0 left-0 w-full p-8 z-20">
-        <div className="flex justify-between items-center">
-          <h1 className="text-xl font-semibold text-gray-700 tracking-tighter">qaesar</h1>
-          <div className="flex gap-4">
-            <span className="px-3 py-1 text-sm bg-gray-100 text-gray-600 rounded-lg">
-              AI Browser Testing Agent
-            </span>
+      {/* Sidebar */}
+      <div className={`relative z-10 bg-white/60 border-r border-white/80 backdrop-blur-2xl transition-all duration-300 ${sidebarOpen ? 'w-80' : 'w-16'}`}>
+        <div className="p-4 border-b border-white/80">
+          <div className="flex items-center justify-between">
+            <div className={`flex items-center gap-3 ${sidebarOpen ? '' : 'justify-center'}`}>
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2 hover:bg-black/10 rounded-lg transition-colors"
+              >
+                <Menu size={20} />
+              </button>
+              {sidebarOpen && (
+                <div>
+                  <h1 className="text-lg font-semibold text-gray-700">qaesar</h1>
+                  <p className="text-xs text-gray-500">AI Browser Testing</p>
+                </div>
+              )}
+            </div>
+            {sidebarOpen && <UserButton afterSignOutUrl="/" />}
           </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="relative z-10 flex flex-col items-center w-full max-w-2xl space-y-8">
-        {/* Input Card */}
-        <motion.div
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.5, ease: 'easeInOut' }}
-          className="w-full"
-        >
-          <div className="relative w-full p-2 bg-white/60 border border-white/80 rounded-2xl shadow-xl shadow-black/5 backdrop-blur-2xl">
-            <form onSubmit={handleFormSubmit} className="flex items-center w-full gap-2">
-              <div className="flex items-center flex-grow p-2 rounded-lg bg-black/5">
-                <Type className="w-5 h-5 mx-2 text-black/40" />
-                <input
-                  type="text"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="What should we automate?"
-                  className="w-full h-10 text-sm bg-transparent focus:outline-none placeholder:text-black/40"
-                />
+        {sidebarOpen && (
+          <div className="p-4">
+            <h2 className="text-sm font-medium text-gray-700 mb-3">Test Sessions</h2>
+
+            {userSessions === undefined ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="animate-pulse">
+                    <div className="h-16 bg-gray-200 rounded-lg"></div>
+                  </div>
+                ))}
               </div>
-              <div className="hidden md:flex items-center p-2 rounded-lg bg-black/5">
-                <Globe className="w-5 h-5 mx-2 text-black/40" />
-                <input
-                  type="text"
-                  value={websiteUrl}
-                  onChange={(e) => setWebsiteUrl(e.target.value)}
-                  placeholder="Website URL"
-                  className="w-40 h-10 text-sm bg-transparent focus:outline-none placeholder:text-black/40"
-                />
+            ) : userSessions.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-gray-500">No sessions yet</p>
+                <p className="text-xs text-gray-400 mt-1">Create your first test session</p>
               </div>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                type="submit"
-                className="flex items-center justify-center flex-shrink-0 w-12 h-12 bg-gray-800 rounded-full disabled:opacity-40 disabled:cursor-not-allowed"
-                disabled={!prompt || !websiteUrl || loading}
-              >
-                {loading ? (
+            ) : (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {userSessions.map((session) => (
                   <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                    className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
-                  />
-                ) : (
-                  <ArrowUp className="w-6 h-6 text-white" />
-                )}
-              </motion.button>
-            </form>
-          </div>
-        </motion.div>
-
-        {/* Flows Grid */}
-        <div className="w-full space-y-4">
-          {/* Add New Flow Button */}
-          <div className="flex justify-center">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={addNewFlow}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-            >
-              <Plus size={20} />
-              Add New Flow
-            </motion.button>
-          </div>
-
-          <AnimatePresence>
-            {showFlows && (
-              <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4"
-              >
-                {flows.map((flow, index) => (
-                  <motion.div
-                    key={index}
-                    variants={itemVariants}
-                    layout
-                    whileHover={{ scale: 1.03, y: -5 }}
-                    onClick={() => handleSelectFlow(index)}
-                    className={`relative flex flex-col justify-between p-4 transition-colors bg-white/60 border rounded-2xl shadow-lg shadow-black/5 backdrop-blur-2xl cursor-pointer group ${flow.approved ? 'border-blue-500/50' : 'border-white/80'}`}
+                    key={session._id}
+                    whileHover={{ scale: 1.02 }}
+                    onClick={() => handleSessionClick(session._id)}
+                    className={`p-3 rounded-lg cursor-pointer transition-all border ${currentSessionId === session._id
+                      ? 'bg-blue-50 border-blue-200'
+                      : 'bg-white/40 border-white/60 hover:bg-white/60'
+                      }`}
                   >
-                    <div>
-                      <div className="flex items-center justify-between mb-2 text-gray-600">
-                        {getFlowIcon(flow.name)}
-                        <span className="px-2 py-0.5 text-xs text-gray-500 bg-black/5 rounded-full">
-                          {flow.estimatedTime ? `${Math.round(flow.estimatedTime / 60)}m` : '2m'}
-                        </span>
-                      </div>
-                      <h3 className="font-medium text-gray-800">{flow.name}</h3>
-                      <p className="mt-1 text-sm text-gray-500">{flow.description}</p>
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="font-medium text-sm text-gray-800 truncate">{session.name}</h3>
+                      {getStatusIcon(session.status)}
                     </div>
-                    <div className="flex items-center justify-between mt-4">
-                      <motion.div className={`flex items-center justify-center w-6 h-6 rounded-full border-2 transition-all ${flow.approved ? 'bg-blue-500 border-blue-500' : 'border-gray-300 bg-black/5'}`}>
-                        <AnimatePresence>
-                          {flow.approved && (
-                            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
-                              <Check className="w-4 h-4 text-white" />
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </motion.div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startEditingFlow(index);
-                          }}
-                          className="p-2 text-gray-400 transition-colors rounded-full hover:bg-black/10 hover:text-gray-700"
-                          title="Edit Flow"
-                        >
-                          <Edit3 size={16} />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteFlow(index);
-                          }}
-                          className="p-2 text-gray-400 transition-colors rounded-full hover:bg-red-500/10 hover:text-red-500"
-                          title="Delete Flow"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+                    <p className="text-xs text-gray-600 truncate">{session.prompt}</p>
+                    <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                      <span>{new Date(session.createdAt).toLocaleDateString()}</span>
+                      <span className={`px-2 py-1 rounded ${getStatusColor(session.status)}`}>
+                        {session.status}
+                      </span>
                     </div>
                   </motion.div>
                 ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </main>
-
-      {/* Flow Editing Modal */}
-      <AnimatePresence>
-        {editingFlow !== null && editingFlowData && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-            onClick={() => setEditingFlow(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Modal Header */}
-              <div className="p-6 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                <h3 className="text-xl font-semibold text-gray-800">
-                  {editingFlow === flows.length ? 'Add New Flow' : 'Edit Flow'}
-                </h3>
-                <button
-                  onClick={() => setEditingFlow(null)}
-                  className="p-2 hover:bg-gray-200 rounded-full transition-colors"
-                >
-                  <X size={24} />
-                </button>
               </div>
+            )}
+          </div>
+        )}
+      </div>
 
-              {/* Modal Content */}
-              <div className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Flow Name</label>
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col relative z-10">
+        {/* Header */}
+        <header className="p-6 border-b border-white/80 bg-white/40 backdrop-blur-2xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">
+                {currentSession ? currentSession.name : 'AI Browser Testing Agent'}
+              </h1>
+              <p className="text-gray-600">
+                {currentSession ? currentSession.prompt : 'Generate, edit, and execute browser tests using natural language'}
+              </p>
+            </div>
+            {!sidebarOpen && <UserButton afterSignOutUrl="/" />}
+          </div>
+        </header>
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {/* Input Card */}
+          <motion.div
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5, ease: 'easeInOut' }}
+            className="mb-8"
+          >
+            <div className="relative w-full p-2 bg-white/60 border border-white/80 rounded-2xl shadow-xl shadow-black/5 backdrop-blur-2xl">
+              <form onSubmit={handleFormSubmit} className="flex items-center w-full gap-2">
+                <div className="flex items-center flex-grow p-2 rounded-lg bg-black/5">
+                  <Type className="w-5 h-5 mx-2 text-black/40" />
                   <input
                     type="text"
-                    value={editingFlowData.name}
-                    onChange={(e) => setEditingFlowData({ ...editingFlowData, name: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="What should we automate?"
+                    className="w-full h-10 text-sm bg-transparent focus:outline-none placeholder:text-black/40"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                  <textarea
-                    value={editingFlowData.description}
-                    onChange={(e) => setEditingFlowData({ ...editingFlowData, description: e.target.value })}
-                    rows={3}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Instructions</label>
-                  <textarea
-                    value={editingFlowData.instructions}
-                    onChange={(e) => setEditingFlowData({ ...editingFlowData, instructions: e.target.value })}
-                    rows={6}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter step-by-step instructions for this flow..."
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Estimated Time (minutes)</label>
+                <div className="flex items-center p-2 rounded-lg bg-black/5">
+                  <Globe className="w-5 h-5 mx-2 text-black/40" />
                   <input
-                    type="number"
-                    value={editingFlowData.estimatedTime || 30}
-                    onChange={(e) => setEditingFlowData({ ...editingFlowData, estimatedTime: parseInt(e.target.value) || 30 })}
-                    min="1"
-                    max="120"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    type="text"
+                    value={websiteUrl}
+                    onChange={(e) => setWebsiteUrl(e.target.value)}
+                    placeholder="Website URL"
+                    className="w-40 h-10 text-sm bg-transparent focus:outline-none placeholder:text-black/40"
                   />
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  type="submit"
+                  className="flex items-center justify-center flex-shrink-0 w-12 h-12 bg-gray-800 rounded-full disabled:opacity-40 disabled:cursor-not-allowed"
+                  disabled={!prompt || !websiteUrl || loading}
+                >
+                  {loading ? (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                      className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
+                    />
+                  ) : (
+                    <ArrowUp className="w-6 h-6 text-white" />
+                  )}
+                </motion.button>
+              </form>
+            </div>
+          </motion.div>
+
+          {/* Flows Grid */}
+          {showFlows && (
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-800">Test Flows</h2>
+                <div className="flex items-center gap-3">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={addNewFlow}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  >
+                    <Plus size={16} />
+                    Add Flow
+                  </motion.button>
+                  {hasSelection && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleRunProcess}
+                      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                    >
+                      <Play size={16} />
+                      Run Selected ({selectedFlows.length})
+                    </motion.button>
+                  )}
                 </div>
               </div>
 
-              {/* Modal Footer */}
-              <div className="p-6 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
-                <button
-                  onClick={cancelEditingFlow}
-                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => saveEditedFlow(editingFlow)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  {editingFlow === flows.length ? 'Add Flow' : 'Save Changes'}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Live Browser Sessions */}
-      <AnimatePresence>
-        {liveSessions.length > 0 && (
-          <motion.div
-            initial={{ y: 50, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 50, opacity: 0 }}
-            className="mt-8 space-y-6"
-          >
-            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-              <Globe className="text-blue-500" />
-              Live Browser Sessions ({liveSessions.length})
-            </h2>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {liveSessions.map((session, index) => (
-                <motion.div
-                  key={session.taskId}
-                  initial={{ scale: 0.95, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden hover:shadow-xl transition-all"
-                >
-                  {/* Session Header */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                {flows.map((flow, index) => (
                   <div
-                    className="p-4 bg-gray-50 border-b border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => {
-                      console.log("Session header clicked:", session.taskId, session);
-                      alert("Session header clicked!");
-                      if (session.taskId) {
-                        setSelectedSessionDetails(session.taskId);
-                        fetchSessionDetails(session.taskId);
-                      }
-                    }}
+                    key={index}
+                    className={`relative flex flex-col justify-between p-4 transition-colors bg-white/60 border rounded-2xl shadow-lg shadow-black/5 backdrop-blur-2xl cursor-pointer group ${flow.approved ? 'border-blue-500/50' : 'border-white/80'}`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-semibold text-gray-800 truncate">{session.name}</h3>
-                        <p className="text-sm text-gray-600 truncate">{session.description}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                          <span className="text-xs text-green-600 font-medium">LIVE</span>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation(); // Prevent session header click
-                            if (session.taskId) {
-                              // Navigate to logs page with session data
-                              const logsUrl = `/logs/${session.taskId}?name=${encodeURIComponent(session.name)}&description=${encodeURIComponent(session.description)}`;
-                              window.open(logsUrl, '_blank');
-                            }
-                          }}
-                          className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors relative z-10 border-2 border-blue-300"
-                          style={{ position: 'relative', zIndex: 10 }}
-                        >
-                          View Logs
-                        </button>
-
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Live Browser Iframe */}
-                  <div className="relative">
-                    {session.liveUrl ? (
-                      <div className="relative">
-                        <iframe
-                          src={session.liveUrl}
-                          className="w-full h-96 border-0"
-                          title={`Live browser session: ${session.name}`}
-                          allow="camera; microphone; geolocation"
-                          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+                    {editingFlow === index ? (
+                      // Edit Mode
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          value={editingFlowData?.name || ''}
+                          onChange={(e) => setEditingFlowData(prev => prev ? { ...prev, name: e.target.value } : null)}
+                          className="w-full p-2 text-sm font-medium bg-white/80 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Flow name"
                         />
-                        {/* Clickable overlay for browser interaction */}
-                        <div className="absolute inset-0 bg-transparent hover:bg-blue-50/20 transition-colors cursor-pointer flex items-center justify-center opacity-0 hover:opacity-100 group">
-                          <div className="bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg border">
-                            <p className="text-sm text-gray-700 font-medium">Click to interact with browser</p>
-                          </div>
+                        <textarea
+                          value={editingFlowData?.description || ''}
+                          onChange={(e) => setEditingFlowData(prev => prev ? { ...prev, description: e.target.value } : null)}
+                          className="w-full p-2 text-sm bg-white/80 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                          rows={2}
+                          placeholder="Flow description"
+                        />
+                        <textarea
+                          value={editingFlowData?.instructions || ''}
+                          onChange={(e) => setEditingFlowData(prev => prev ? { ...prev, instructions: e.target.value } : null)}
+                          className="w-full p-2 text-sm bg-white/80 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                          rows={3}
+                          placeholder="Step-by-step instructions"
+                        />
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={cancelEditingFlow}
+                            className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => saveEditedFlow(index)}
+                            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                          >
+                            Save
+                          </button>
                         </div>
                       </div>
                     ) : (
-                      <div className="w-full h-96 bg-gray-100 flex items-center justify-center">
-                        <div className="text-center">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-                          <p className="text-gray-600">Loading browser session...</p>
+                      // View Mode
+                      <div onClick={() => handleSelectFlow(index)}>
+                        <div className="flex items-center justify-between mb-2 text-gray-600">
+                          {getFlowIcon(flow.name)}
+                          <span className="px-2 py-0.5 text-xs text-gray-500 bg-black/5 rounded-full">
+                            {flow.estimatedTime ? `${Math.round(flow.estimatedTime / 60)}m` : '2m'}
+                          </span>
+                        </div>
+                        <h3 className="font-medium text-gray-800">{flow.name}</h3>
+                        <p className="mt-1 text-sm text-gray-500">{flow.description}</p>
+                        <div className="flex items-center justify-between mt-4">
+                          <div className="flex items-center justify-center">
+                            <div className={`flex items-center justify-center w-6 h-6 rounded-full border-2 transition-all ${flow.approved ? 'bg-blue-500 border-blue-500' : 'border-gray-300 bg-black/5'}`}>
+                              {flow.approved && (
+                                <Check className="w-4 h-4 text-white" />
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startEditingFlow(index);
+                              }}
+                              className="p-2 text-gray-400 transition-colors rounded-full hover:bg-black/10 hover:text-gray-700"
+                              title="Edit Flow"
+                            >
+                              <Edit3 size={16} />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteFlow(index);
+                              }}
+                              className="p-2 text-gray-400 transition-colors rounded-full hover:bg-black/10 hover:text-red-600"
+                              title="Delete Flow"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}
                   </div>
-
-                  {/* Session Footer */}
-                  <div
-                    className="p-3 bg-gray-50 border-t border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => {
-                      console.log("Session footer clicked:", session.taskId, session);
-                      if (session.taskId) {
-                        setSelectedSessionDetails(session.taskId);
-                        fetchSessionDetails(session.taskId);
-                      }
-                    }}
-                  >
-                    <div className="flex items-center justify-between text-xs text-gray-600">
-                      <span>Task ID: {session.taskId?.slice(0, 8)}...</span>
-                      <span>Status: {session.status}</span>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+                ))}
+              </div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
 
-      {/* Session Details Modal */}
-      <AnimatePresence>
-        {selectedSessionDetails && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-            onClick={() => setSelectedSessionDetails(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Modal Header */}
-              <div className="p-6 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-800">Session Details</h3>
-                  <p className="text-sm text-gray-600">Task ID: {selectedSessionDetails}</p>
-                </div>
-                <button
-                  onClick={() => setSelectedSessionDetails(null)}
-                  className="p-2 hover:bg-gray-200 rounded-full transition-colors"
-                >
-                  <X size={24} />
-                </button>
-              </div>
-
-              {/* Session Details Content */}
-              <div className="flex h-[calc(90vh-120px)]">
-                {/* Left Panel - Session Info */}
-                <div className="w-1/2 p-6 border-r border-gray-200 overflow-y-auto">
-                  <div className="space-y-6">
-                    {/* Session Overview */}
-                    <div>
-                      <h4 className="text-lg font-semibold text-gray-800 mb-3">Session Overview</h4>
-                      {sessionDetails[selectedSessionDetails] ? (
-                        <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">Status:</span>
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${sessionDetails[selectedSessionDetails].status === 'running' ? 'bg-yellow-100 text-yellow-800' :
-                              sessionDetails[selectedSessionDetails].status === 'completed' ? 'bg-green-100 text-green-800' :
-                                sessionDetails[selectedSessionDetails].status === 'failed' ? 'bg-red-100 text-red-800' :
-                                  'bg-gray-100 text-gray-800'
-                              }`}>
-                              {sessionDetails[selectedSessionDetails].status}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">Steps Completed:</span>
-                            <span className="text-blue-600 font-medium">
-                              {sessionDetails[selectedSessionDetails].steps_count || 0}
-                            </span>
-                          </div>
-
-                          {sessionDetails[selectedSessionDetails].live_url && (
-                            <div>
-                              <span className="font-medium">Live URL:</span>
-                              <a
-                                href={sessionDetails[selectedSessionDetails].live_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block text-blue-600 hover:underline text-sm mt-1 break-all"
-                              >
-                                {sessionDetails[selectedSessionDetails].live_url}
-                              </a>
-                            </div>
-                          )}
-
-                          {sessionDetails[selectedSessionDetails].started_at && (
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium">Started:</span>
-                              <span className="text-sm text-gray-600">
-                                {new Date(sessionDetails[selectedSessionDetails].started_at).toLocaleString()}
-                              </span>
-                            </div>
-                          )}
-
-                          {sessionDetails[selectedSessionDetails].finished_at && (
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium">Finished:</span>
-                              <span className="text-sm text-gray-600">
-                                {new Date(sessionDetails[selectedSessionDetails].finished_at).toLocaleString()}
-                              </span>
-                            </div>
-                          )}
-
-                          {sessionDetails[selectedSessionDetails].is_success !== null && (
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium">Success:</span>
-                              <span className={`px-2 py-1 rounded text-xs font-medium ${sessionDetails[selectedSessionDetails].is_success
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                                }`}>
-                                {sessionDetails[selectedSessionDetails].is_success ? 'Yes' : 'No'}
-                              </span>
-                            </div>
-                          )}
-
-                          {sessionDetails[selectedSessionDetails].done_output && (
-                            <div>
-                              <span className="font-medium">Output:</span>
-                              <div className="mt-1 p-2 bg-white border rounded text-sm">
-                                {sessionDetails[selectedSessionDetails].done_output}
-                              </div>
-                            </div>
-                          )}
+          {/* Live Browser Sessions */}
+          {liveSessions.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Live Browser Sessions</h2>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {liveSessions.map((session, index) => (
+                  <div key={index} className="bg-white/60 border border-white/80 rounded-2xl shadow-lg shadow-black/5 backdrop-blur-2xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-medium text-gray-800">{session.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <div className={`px-2 py-1 rounded text-xs ${getStatusColor(session.status || 'running')}`}>
+                          {session.status || 'running'}
                         </div>
-                      ) : (
-                        <div className="flex items-center justify-center py-8">
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-                          <span className="ml-2 text-gray-600">Loading session details...</span>
-                        </div>
-                      )}
+                        {session.taskId && (
+                          <a
+                            href={`/logs/${session.taskId}?name=${encodeURIComponent(session.name)}&description=${encodeURIComponent(session.description)}`}
+                            className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                          >
+                            View Details
+                          </a>
+                        )}
+                        {session.liveUrl && (
+                          <a
+                            href={session.liveUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                          >
+                            View Live
+                          </a>
+                        )}
+                      </div>
                     </div>
-
-                    {/* Steps Breakdown */}
-                    {sessionDetails[selectedSessionDetails]?.steps && (
-                      <div>
-                        <h4 className="text-lg font-semibold text-gray-800 mb-3">Execution Steps</h4>
-                        <div className="space-y-3 max-h-64 overflow-y-auto">
-                          {sessionDetails[selectedSessionDetails].steps.map((step: any, index: number) => (
-                            <div key={index} className="bg-gray-50 rounded-lg p-3 border-l-4 border-blue-500">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="font-medium text-sm">Step {index + 1}</span>
-                                <span className="text-xs text-gray-500">{step.url}</span>
-                              </div>
-                              {step.next_goal && (
-                                <p className="text-sm text-gray-700 mb-2">
-                                  <strong>Goal:</strong> {step.next_goal}
-                                </p>
-                              )}
-                              {step.evaluation_previous_goal && (
-                                <p className="text-sm text-gray-600">
-                                  <strong>Evaluation:</strong> {step.evaluation_previous_goal}
-                                </p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+                    {session.liveUrl && (
+                      <div
+                        className="aspect-video bg-gray-100 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+                        onClick={() => {
+                          if (session.taskId) {
+                            window.open(`/logs/${session.taskId}?name=${encodeURIComponent(session.name)}&description=${encodeURIComponent(session.description)}`, '_blank');
+                          }
+                        }}
+                      >
+                        <iframe
+                          src={session.liveUrl}
+                          className="w-full h-full border-0"
+                          title={`Live session: ${session.name}`}
+                        />
                       </div>
                     )}
                   </div>
-                </div>
-
-                {/* Right Panel - Logs Info */}
-                <div className="w-1/2 p-6 overflow-y-auto">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Logs & Monitoring</h4>
-                  <div className="space-y-4">
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <h5 className="font-medium text-blue-800 mb-2">View Detailed Logs</h5>
-                      <p className="text-sm text-blue-700 mb-3">
-                        Click the "View Logs" button in the session header to open a comprehensive logs page with:
-                      </p>
-                      <ul className="text-sm text-blue-600 space-y-1">
-                        <li>• Real-time console logs</li>
-                        <li>• Network request logs</li>
-                        <li>• Execution steps breakdown</li>
-                        <li>• Live browser preview</li>
-                      </ul>
-                    </div>
-
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                      <h5 className="font-medium text-gray-800 mb-2">Current Status</h5>
-                      <p className="text-sm text-gray-600">
-                        This session is currently running and streaming logs in real-time.
-                        Use the dedicated logs page for detailed monitoring and debugging.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-
-
-      {/* "Run Selected" Button */}
-      <AnimatePresence>
-        {hasSelection && (
-          <motion.div
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 200, damping: 30 }}
-            className="fixed bottom-8 z-20"
-          >
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleRunProcess}
-              className="px-8 py-4 font-semibold text-white bg-gray-800 rounded-full shadow-2xl shadow-black/20"
-            >
-              Run {selectedFlows.length} Selected
-            </motion.button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* --- STYLES & ANIMATIONS --- */}
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-        @keyframes blob {
-          0% { transform: translate(0px, 0px) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
-          100% { transform: translate(0px, 0px) scale(1); }
-        }
-        .animate-blob { animation: blob 10s infinite; }
-        .animation-delay-4000 { animation-delay: -4s; }
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-      `}</style>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
-};
+}
 
-export default HomePage;
+// Main App Component
+export default function Home() {
+  return (
+    <>
+      <AuthLoading>
+        <AuthLoadingScreen />
+      </AuthLoading>
+      <Unauthenticated>
+        <UnauthenticatedScreen />
+      </Unauthenticated>
+      <Authenticated>
+        <AuthenticatedContent />
+      </Authenticated>
+    </>
+  );
+}

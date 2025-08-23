@@ -181,43 +181,38 @@ async def health_check():
 # ==================== LLM FLOW GENERATION ENDPOINTS ====================
 
 def create_flow_generation_prompt(user_prompt: str, website_url: Optional[str] = None, num_flows: int = 5) -> str:
-    """Create a well-structured prompt for LLM to generate testing flows"""
+    """Create a natural language prompt for LLM to generate testing flows"""
     
-    base_prompt = f"""You are an expert QA automation engineer. Generate {num_flows} comprehensive test flows for browser automation testing.
+    base_prompt = f"""You are an expert QA engineer. Generate {num_flows} test flows for browser automation.
 
 USER REQUEST: {user_prompt}
 
-{f"WEBSITE TO TEST: {website_url}" if website_url else ""}
+{f"WEBSITE: {website_url}" if website_url else ""}
 
-Generate exactly {num_flows} test flows that cover different aspects of testing. Each flow should be:
-1. Specific and actionable
-2. Suitable for browser automation
-3. Comprehensive enough to catch real issues
-4. Focused on user-facing functionality
+Create {num_flows} different test flows. Each flow should be practical and cover important user scenarios.
 
 For each test flow, provide:
-- name: A clear, descriptive name (max 50 characters)
-- description: A brief explanation of what this flow tests (max 100 characters)  
-- instructions: Detailed step-by-step instructions for browser automation (be specific about what to click, type, verify)
+- name: Clear test name (under 50 characters)
+- description: What this tests (under 100 characters)
+- instructions: Natural language instructions for the AI agent (be conversational, not overly detailed)
 
-Return ONLY a valid JSON array with this exact structure:
+Return ONLY valid JSON:
 [
   {{
     "name": "Test Flow Name",
-    "description": "Brief description of what this tests",
-    "instructions": "Step 1: Navigate to homepage. Step 2: Click login button. Step 3: Enter credentials. Step 4: Verify dashboard loads."
+    "description": "Brief description",
+    "instructions": "Go to the homepage, find the login button and sign in, then check that the dashboard appears"
   }}
 ]
 
-Focus on realistic, important test scenarios like:
-- User authentication flows
-- Core functionality testing  
-- Navigation and UI interactions
-- Form submissions and validations
-- Error handling scenarios
-- Mobile responsiveness (if applicable)
+Focus on key user journeys like:
+- Login and authentication
+- Main features and navigation
+- Forms and user input
+- Search and filtering
+- Error scenarios
 
-Make the instructions clear enough for an AI agent to execute them."""
+Write instructions in natural language that an AI agent can understand and execute."""
     
     return base_prompt
 
