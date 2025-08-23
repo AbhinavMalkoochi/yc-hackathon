@@ -22,8 +22,22 @@ export default function Home() {
       </header>
       <main className="p-8 flex flex-col gap-8">
         <h1 className="text-4xl font-bold text-center">
-          Convex + Next.js + Clerk
+          AI Browser Testing Agent
         </h1>
+
+        {/* Task 1.1 Test Link */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 max-w-2xl mx-auto">
+          <h2 className="text-xl font-semibold text-blue-900 mb-2">Development Testing</h2>
+          <p className="text-blue-700 mb-4">
+            Access the Task 1.1 test page to verify FastAPI-Next.js integration with comprehensive logging.
+          </p>
+          <Link
+            href="/test"
+            className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-medium transition-colors"
+          >
+            🧪 Task 1.1: Integration Test
+          </Link>
+        </div>
 
         {/* FastAPI Test Component - Available to all users */}
         <FastApiTest />
