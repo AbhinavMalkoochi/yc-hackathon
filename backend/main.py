@@ -8,7 +8,8 @@ import time
 import json
 import asyncio
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
+import os
 
 # Configure logging
 logging.basicConfig(
@@ -22,6 +23,23 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="AI Browser Testing Agent API", version="1.0.0")
+
+# Convex client setup (will be initialized if CONVEX_URL is provided)
+try:
+    from convex import ConvexClient
+    CONVEX_URL = os.getenv("CONVEX_URL", "")
+    convex_client = ConvexClient(CONVEX_URL) if CONVEX_URL else None
+    if convex_client:
+        logger.info(f"Convex client initialized with URL: {CONVEX_URL}")
+    else:
+        logger.warning("CONVEX_URL not provided, Convex features will be disabled")
+        logger.info("To set up Convex: 1) Run 'npx convex dev' 2) Set CONVEX_URL environment variable")
+except ImportError:
+    logger.warning("Convex client not available, install with: pip install convex")
+    convex_client = None
+except Exception as e:
+    logger.error(f"Error initializing Convex client: {e}")
+    convex_client = None
 
 # Logging middleware
 @app.middleware("http")
@@ -61,6 +79,25 @@ class TestResponse(BaseModel):
     timestamp: str
     correlation_id: str
     test_data: Dict[str, Any]
+
+# Convex-related models
+class CreateTestSessionRequest(BaseModel):
+    name: str
+    prompt: str
+
+class CreateTestFlowsRequest(BaseModel):
+    session_id: str
+    flows: List[Dict[str, str]]
+
+class UpdateFlowApprovalRequest(BaseModel):
+    flow_id: str
+    approved: bool
+
+class TestSessionResponse(BaseModel):
+    session_id: str
+    message: str
+    status: str
+    timestamp: str
 
 @app.get("/")
 async def root():
@@ -113,8 +150,175 @@ async def health_check():
         "status": "healthy", 
         "service": "ai-browser-testing-agent-api",
         "timestamp": datetime.now().isoformat(),
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "convex_enabled": convex_client is not None
     }
+
+# ==================== CONVEX DATABASE ENDPOINTS ====================
+
+@app.post("/api/convex/test-session", response_model=TestSessionResponse)
+async def create_test_session(request: CreateTestSessionRequest):
+    """Create a new test session in Convex database"""
+    if not convex_client:
+        return TestSessionResponse(
+            session_id="",
+            message="Convex not available",
+            status="error",
+            timestamp=datetime.now().isoformat()
+        )
+    
+    try:
+        session_id = await convex_client.mutation("browserTesting:createTestSession", {
+            "name": request.name,
+            "prompt": request.prompt
+        })
+        
+        logger.info(f"Created test session: {session_id}")
+        
+        return TestSessionResponse(
+            session_id=str(session_id),
+            message="Test session created successfully",
+            status="success",
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.error(f"Error creating test session: {str(e)}")
+        return TestSessionResponse(
+            session_id="",
+            message=f"Error creating test session: {str(e)}",
+            status="error",
+            timestamp=datetime.now().isoformat()
+        )
+
+@app.get("/api/convex/test-sessions")
+async def list_test_sessions(limit: Optional[int] = 20):
+    """Get list of test sessions from Convex database"""
+    if not convex_client:
+        return {"error": "Convex not available", "data": []}
+    
+    try:
+        sessions = await convex_client.query("browserTesting:listTestSessions", {
+            "limit": limit
+        })
+        
+        logger.info(f"Retrieved {len(sessions)} test sessions")
+        
+        return {
+            "message": "Test sessions retrieved successfully",
+            "status": "success",
+            "timestamp": datetime.now().isoformat(),
+            "data": sessions
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving test sessions: {str(e)}")
+        return {
+            "error": f"Error retrieving test sessions: {str(e)}",
+            "data": []
+        }
+
+@app.get("/api/convex/test-session/{session_id}")
+async def get_test_session(session_id: str):
+    """Get a specific test session with flows"""
+    if not convex_client:
+        return {"error": "Convex not available", "data": None}
+    
+    try:
+        session = await convex_client.query("browserTesting:getTestSession", {
+            "sessionId": session_id
+        })
+        
+        logger.info(f"Retrieved test session: {session_id}")
+        
+        return {
+            "message": "Test session retrieved successfully",
+            "status": "success",
+            "timestamp": datetime.now().isoformat(),
+            "data": session
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving test session {session_id}: {str(e)}")
+        return {
+            "error": f"Error retrieving test session: {str(e)}",
+            "data": None
+        }
+
+@app.post("/api/convex/test-flows")
+async def create_test_flows(request: CreateTestFlowsRequest):
+    """Create test flows for a session"""
+    if not convex_client:
+        return {"error": "Convex not available", "flow_ids": []}
+    
+    try:
+        flow_ids = await convex_client.mutation("browserTesting:createTestFlows", {
+            "sessionId": request.session_id,
+            "flows": request.flows
+        })
+        
+        logger.info(f"Created {len(flow_ids)} test flows for session {request.session_id}")
+        
+        return {
+            "message": f"Created {len(flow_ids)} test flows successfully",
+            "status": "success",
+            "timestamp": datetime.now().isoformat(),
+            "flow_ids": [str(fid) for fid in flow_ids]
+        }
+    except Exception as e:
+        logger.error(f"Error creating test flows: {str(e)}")
+        return {
+            "error": f"Error creating test flows: {str(e)}",
+            "flow_ids": []
+        }
+
+@app.put("/api/convex/flow-approval")
+async def update_flow_approval(request: UpdateFlowApprovalRequest):
+    """Update flow approval status"""
+    if not convex_client:
+        return {"error": "Convex not available"}
+    
+    try:
+        flow_id = await convex_client.mutation("browserTesting:updateFlowApproval", {
+            "flowId": request.flow_id,
+            "approved": request.approved
+        })
+        
+        action = "approved" if request.approved else "unapproved"
+        logger.info(f"Flow {flow_id} {action}")
+        
+        return {
+            "message": f"Flow {action} successfully",
+            "status": "success",
+            "timestamp": datetime.now().isoformat(),
+            "flow_id": str(flow_id)
+        }
+    except Exception as e:
+        logger.error(f"Error updating flow approval: {str(e)}")
+        return {
+            "error": f"Error updating flow approval: {str(e)}"
+        }
+
+@app.get("/api/convex/system-stats")
+async def get_convex_system_stats():
+    """Get system statistics from Convex"""
+    if not convex_client:
+        return {"error": "Convex not available", "data": None}
+    
+    try:
+        stats = await convex_client.query("browserTesting:getSystemStats", {})
+        
+        logger.info("Retrieved system stats from Convex")
+        
+        return {
+            "message": "System stats retrieved successfully",
+            "status": "success",
+            "timestamp": datetime.now().isoformat(),
+            "data": stats
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving system stats: {str(e)}")
+        return {
+            "error": f"Error retrieving system stats: {str(e)}",
+            "data": None
+        }
 
 # Streaming endpoint for Task 1.2
 async def generate_stream_data():

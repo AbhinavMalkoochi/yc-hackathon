@@ -11,13 +11,15 @@ app/
 ├── page.tsx                    # Main landing page with task test links
 ├── test/
 │   └── page.tsx               # ✅ Task 1.1 integration test page
-├── websocket-test/
-│   └── page.tsx               # ✅ Task 1.2 WebSocket test page
+├── streaming-test/
+│   └── page.tsx               # ✅ Task 1.2 Streaming test page
+├── convex-test/
+│   └── page.tsx               # ✅ Task 1.3 Convex database test page
 ├── globals.css                # Global styles
 └── layout.tsx                 # Root layout
 
 lib/
-└── api.ts                     # ✅ Enhanced API client with WebSocket support
+└── api.ts                     # ✅ Enhanced API client with Streaming and Convex support
 
 components/
 ├── ConvexClientProvider.tsx   # Convex real-time database provider
@@ -52,15 +54,25 @@ components/
 - **Error Visualization**: Clear error messages with status codes
 - **Progress Tracking**: Visual indicators for request status
 
-### WebSocket Test Page (`app/websocket-test/page.tsx`) - Task 1.2
+### Streaming Test Page (`app/streaming-test/page.tsx`) - Task 1.2
 
-- **Real-time WebSocket Testing**: Interactive WebSocket connection management
-- **Multiple Endpoints**: Support for `/ws` and `/ws/test` endpoints
-- **Live Connection Status**: Real-time connection monitoring with statistics
-- **Message Controls**: Send custom messages, ping/pong, broadcast functionality
-- **Live Logs**: Console-style real-time logging of all WebSocket activity
-- **Connection Statistics**: Live tracking of connections and message counts
-- **Auto-reconnection**: Visual feedback for connection lifecycle events
+- **Real-time SSE Testing**: Interactive Server-Sent Events connection management
+- **Multiple Endpoints**: Support for `/api/stream` and `/api/stream/simple` endpoints
+- **Live Connection Status**: Real-time connection monitoring with automatic reconnection
+- **Message Display**: Live streaming message display with JSON formatting
+- **Live Logs**: Console-style real-time logging of all streaming activity
+- **Connection Statistics**: Live tracking of connection state and message counts
+- **Auto-reconnection**: Visual feedback for connection lifecycle events with exponential backoff
+
+### Convex Database Test Page (`app/convex-test/page.tsx`) - Task 1.3
+
+- **Database Operations Testing**: Interactive Convex database CRUD operations
+- **Session Management**: Create and manage test sessions with custom prompts
+- **Flow Management**: Create sample flows and manage approval workflows
+- **Real-time Sync**: Live database updates with immediate frontend reflection
+- **System Statistics**: Live monitoring of active sessions and browser instances
+- **Live Logs**: Comprehensive logging of all database operations and responses
+- **Error Handling**: Visual feedback for database errors with detailed messaging
 
 ## 🧪 Testing Interface Features
 
@@ -197,7 +209,7 @@ The test interface adapts to different screen sizes:
 
 ### Development Priorities
 
-1. **Task 1.2**: WebSocket client implementation
+1. **Task 1.2**: Streaming client implementation
 2. **Task 1.3**: Convex real-time data integration
 3. **Phase 2**: Flow generation UI components
 4. **Phase 3**: Browser session monitoring interface

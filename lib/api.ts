@@ -149,6 +149,41 @@ export async function getStats(): Promise<StatsResponse> {
   return apiRequest("/api/stats", {}, StatsResponseSchema);
 }
 
+// Convex API functions
+export async function createTestSession(name: string, prompt: string) {
+  return apiRequest("/api/convex/test-session", {
+    method: "POST",
+    body: JSON.stringify({ name, prompt }),
+  });
+}
+
+export async function listTestSessions(limit?: number) {
+  const endpoint = limit ? `/api/convex/test-sessions?limit=${limit}` : "/api/convex/test-sessions";
+  return apiRequest(endpoint);
+}
+
+export async function getTestSession(sessionId: string) {
+  return apiRequest(`/api/convex/test-session/${sessionId}`);
+}
+
+export async function createTestFlows(sessionId: string, flows: Array<{name: string, description: string, instructions: string}>) {
+  return apiRequest("/api/convex/test-flows", {
+    method: "POST",
+    body: JSON.stringify({ session_id: sessionId, flows }),
+  });
+}
+
+export async function updateFlowApproval(flowId: string, approved: boolean) {
+  return apiRequest("/api/convex/flow-approval", {
+    method: "PUT",
+    body: JSON.stringify({ flow_id: flowId, approved }),
+  });
+}
+
+export async function getConvexSystemStats() {
+  return apiRequest("/api/convex/system-stats");
+}
+
 // Streaming client utilities
 export interface StreamMessage {
   type: string;
