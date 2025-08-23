@@ -1,0 +1,50 @@
+2025-08-23 02:18:10,634 - main - INFO - [req_1755933490634] Request started: GET http://localhost:8000/api/test
+2025-08-23 02:18:10,637 - main - INFO - [unknown] Test endpoint accessed for Task 1.1
+2025-08-23 02:18:10,640 - main - INFO - [unknown] Test data prepared: {'frontend_backend_connection': 'successful', 'logging_system': 'operational', 'timestamp_server': '2025-08-23T02:18:10.639231', 'request_method': 'GET', 'request_url': 'http://localhost:8000/api/test', 'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:142.0) Gecko/20100101 Firefox/142.0', 'task': '1.1 - Basic FastAPI-Next.js Integration Test'}
+2025-08-23 02:18:10,644 - main - INFO - [unknown] Test endpoint response prepared successfully
+2025-08-23 02:18:10,652 - main - INFO - [req_1755933490634] Request completed: 200 in 0.0176s
+2025-08-23 02:25:49,004 - main - INFO - [req_1755933949003] Request started: GET http://localhost:8000/health
+2025-08-23 02:25:49,006 - main - INFO - Health check endpoint accessed
+2025-08-23 02:25:49,007 - main - INFO - [req_1755933949003] Request completed: 200 in 0.0043s
+2025-08-23 02:26:14,957 - main - INFO - WebSocket connected. Total connections: 1
+2025-08-23 02:26:15,004 - main - INFO - Message sent to connection 2021348462416: connection_established
+2025-08-23 02:26:15,018 - main - INFO - Message sent to connection 2021348462416: test_connection
+2025-08-23 02:26:15,057 - main - INFO - Test WebSocket received: {"type": "test_echo", "message": "Hello from Python test client!"}
+2025-08-23 02:26:15,076 - main - ERROR - Error sending message to 2021348462416: 
+2025-08-23 02:26:20,058 - main - ERROR - Error sending message to 2021348462416: Cannot call "send" once a close message has been sent.
+2025-08-23 02:26:25,074 - main - ERROR - Error sending message to 2021348462416: Cannot call "send" once a close message has been sent.
+2025-08-23 02:26:30,098 - main - ERROR - Error sending message to 2021348462416: Cannot call "send" once a close message has been sent.
+2025-08-23 02:26:35,117 - main - ERROR - Error sending message to 2021348462416: Cannot call "send" once a close message has been sent.
+2025-08-23 02:26:40,127 - main - ERROR - Error sending message to 2021348462416: Cannot call "send" once a close message has been sent.
+2025-08-23 02:26:45,175 - main - ERROR - Error sending message to 2021348462416: Cannot call "send" once a close message has been sent.
+2025-08-23 02:26:50,180 - main - ERROR - Error sending message to 2021348462416: Cannot call "send" once a close message has been sent.
+2025-08-23 02:26:55,194 - main - ERROR - Error sending message to 2021348462416: Cannot call "send" once a close message has been sent.
+2025-08-23 02:27:00,200 - main - ERROR - Error sending message to 2021348462416: Cannot call "send" once a close message has been sent.
+2025-08-23 02:27:05,220 - main - ERROR - Error sending message to 2021348462416: Cannot call "send" once a close message has been sent.
+2025-08-23 02:27:10,233 - main - ERROR - Error sending message to 2021348462416: Cannot call "send" once a close message has been sent.
+2025-08-23 02:28:30,433 - main - INFO - [req_1755934110433] Request started: GET http://localhost:8000/health
+2025-08-23 02:28:30,433 - main - INFO - Health check endpoint accessed
+2025-08-23 02:28:30,433 - main - INFO - [req_1755934110433] Request completed: 200 in 0.0000s
+2025-08-23 02:28:50,881 - main - INFO - WebSocket connected. Total connections: 1
+2025-08-23 02:28:50,884 - main - INFO - Message sent to connection 2707242584656: connection_established
+2025-08-23 02:28:50,884 - main - INFO - Message sent to connection 2707242584656: test_connection
+2025-08-23 02:28:50,885 - main - INFO - Test WebSocket received: {"type": "test_echo", "message": "Hello from test!"}
+2025-08-23 02:28:50,886 - main - INFO - Message sent to connection 2707242584656: test_echo_response
+2025-08-23 02:28:50,898 - main - INFO - WebSocket disconnected. Total connections: 0
+2025-08-23 02:28:50,899 - main - INFO - Test WebSocket 2707242584656 disconnected
+2025-08-23 02:28:50,899 - main - INFO - Periodic updates cancelled for 2707242584656
+2025-08-23 02:51:36,830 - __main__ - INFO - [req_1755935496830] Request started: GET http://localhost:8000/api/stream
+2025-08-23 02:51:36,839 - __main__ - INFO - [req_1755935496830] Request completed: 404 in 0.0086s
+2025-08-23 02:51:37,899 - __main__ - INFO - [req_1755935497899] Request started: GET http://localhost:8000/api/stream
+2025-08-23 02:51:37,900 - __main__ - INFO - [req_1755935497899] Request completed: 404 in 0.0007s
+2025-08-23 02:51:40,416 - __main__ - INFO - [req_1755935500416] Request started: GET http://localhost:8000/api/stream
+2025-08-23 02:51:40,416 - __main__ - INFO - [req_1755935500416] Request completed: 404 in 0.0006s
+2025-08-23 02:51:43,592 - __main__ - INFO - [req_1755935503592] Request started: GET http://localhost:8000/api/stream
+2025-08-23 02:51:43,593 - __main__ - INFO - [req_1755935503592] Request completed: 404 in 0.0009s
+2025-08-23 02:51:47,781 - __main__ - INFO - [req_1755935507780] Request started: GET http://localhost:8000/api/stream
+2025-08-23 02:51:47,781 - __main__ - INFO - [req_1755935507780] Request completed: 404 in 0.0006s
+2025-08-23 02:51:53,103 - __main__ - INFO - [req_1755935513103] Request started: GET http://localhost:8000/api/stream
+2025-08-23 02:51:53,104 - __main__ - INFO - [req_1755935513103] Request completed: 404 in 0.0006s
+2025-08-23 02:53:25,187 - main - INFO - [req_1755935605187] Request started: GET http://localhost:8000/api/stream
+2025-08-23 02:53:25,187 - main - INFO - Streaming endpoint accessed for Task 1.2
+2025-08-23 02:53:25,190 - main - INFO - [req_1755935605187] Request completed: 200 in 0.0027s

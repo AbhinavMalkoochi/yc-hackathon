@@ -34,9 +34,23 @@ const TestResponseSchema = z.object({
   }),
 });
 
+const StatsResponseSchema = z.object({
+  message: z.string(),
+  status: z.string(),
+  timestamp: z.string(),
+  data: z.object({
+    system_status: z.string(),
+    active_streams: z.string(),
+    uptime: z.string(),
+    version: z.string(),
+    task: z.string(),
+  }),
+});
+
 type MessageResponse = z.infer<typeof MessageResponseSchema>;
 type HealthResponse = z.infer<typeof HealthResponseSchema>;
 type TestResponse = z.infer<typeof TestResponseSchema>;
+type StatsResponse = z.infer<typeof StatsResponseSchema>;
 
 // Generic API error class
 class ApiError extends Error {
@@ -131,5 +145,130 @@ export async function testEndpoint(): Promise<TestResponse> {
   return apiRequest("/api/test", {}, TestResponseSchema);
 }
 
+export async function getStats(): Promise<StatsResponse> {
+  return apiRequest("/api/stats", {}, StatsResponseSchema);
+}
+
+// Streaming client utilities
+export interface StreamMessage {
+  type: string;
+  message?: string;
+  timestamp?: string;
+  [key: string]: any;
+}
+
+export interface StreamClientOptions {
+  onMessage: (message: StreamMessage) => void;
+  onConnect?: () => void;
+  onDisconnect?: () => void;
+  onError?: (error: Event) => void;
+  autoReconnect?: boolean;
+  maxReconnectAttempts?: number;
+  reconnectDelay?: number;
+}
+
+export function createStreamClient(
+  endpoint: string,
+  options: StreamClientOptions,
+): () => void {
+  const {
+    onMessage,
+    onConnect = () => {},
+    onDisconnect = () => {},
+    onError = () => {},
+    autoReconnect = true,
+    maxReconnectAttempts = 5,
+    reconnectDelay = 1000,
+  } = options;
+
+  let eventSource: EventSource | null = null;
+  let reconnectAttempts = 0;
+  let shouldReconnect = true;
+
+  function connect() {
+    try {
+      const url = `${API_BASE_URL}${endpoint}`;
+      console.log(`Connecting to stream: ${url}`);
+
+      eventSource = new EventSource(url);
+
+      eventSource.onopen = () => {
+        console.log(`Stream connected to ${url}`);
+        reconnectAttempts = 0;
+        onConnect();
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const message: StreamMessage = JSON.parse(event.data);
+          console.log("Stream message received:", message);
+          onMessage(message);
+        } catch (error) {
+          console.error("Error parsing stream message:", error);
+          onError(new Event("parse_error"));
+        }
+      };
+
+      eventSource.onerror = (event) => {
+        console.error("Stream error:", event);
+        onError(event);
+
+        if (eventSource?.readyState === EventSource.CLOSED) {
+          console.log("Stream connection closed");
+          onDisconnect();
+
+          if (autoReconnect && shouldReconnect) {
+            attemptReconnect();
+          }
+        }
+      };
+    } catch (error) {
+      console.error("Error creating EventSource:", error);
+      onError(new Event("connection_error"));
+    }
+  }
+
+  function attemptReconnect() {
+    if (reconnectAttempts < maxReconnectAttempts && shouldReconnect) {
+      reconnectAttempts++;
+      console.log(
+        `Attempting to reconnect... (${reconnectAttempts}/${maxReconnectAttempts})`,
+      );
+      setTimeout(() => {
+        if (shouldReconnect) {
+          connect();
+        }
+      }, reconnectDelay * reconnectAttempts);
+    } else {
+      console.error(
+        "Max reconnection attempts reached or reconnection disabled",
+      );
+    }
+  }
+
+  function disconnect() {
+    shouldReconnect = false;
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+      console.log("Stream disconnected");
+      onDisconnect();
+    }
+  }
+
+  // Start the connection
+  connect();
+
+  // Return disconnect function
+  return disconnect;
+}
+
 // Export types for use in components
-export type { MessageResponse, HealthResponse, TestResponse, ApiError };
+export type {
+  MessageResponse,
+  HealthResponse,
+  TestResponse,
+  StatsResponse,
+  StreamMessage,
+  ApiError,
+};

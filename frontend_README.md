@@ -4,41 +4,63 @@ Next.js frontend for the AI Browser Testing Agent with comprehensive testing and
 
 ## 📁 Current Structure
 
-### Completed Components (Task 1.1)
+### Completed Components (Tasks 1.1 & 1.2)
 
 ```
 app/
-├── page.tsx                    # Main landing page with Task 1.1 test link
+├── page.tsx                    # Main landing page with task test links
 ├── test/
 │   └── page.tsx               # ✅ Task 1.1 integration test page
+├── websocket-test/
+│   └── page.tsx               # ✅ Task 1.2 WebSocket test page
 ├── globals.css                # Global styles
 └── layout.tsx                 # Root layout
 
 lib/
-└── api.ts                     # ✅ Enhanced API client with comprehensive logging
+└── api.ts                     # ✅ Enhanced API client with WebSocket support
 
 components/
 ├── ConvexClientProvider.tsx   # Convex real-time database provider
 └── FastApiTest.tsx           # Legacy FastAPI test component
 ```
 
-## 🔧 Enhanced Features (Task 1.1)
+## 🔧 Enhanced Features (Tasks 1.1 & 1.2)
 
 ### API Client (`lib/api.ts`)
+
+#### Task 1.1 Features
 
 - **Comprehensive Logging**: Request/response logging with correlation IDs
 - **Type Safety**: Zod schema validation for all API responses
 - **Error Handling**: Structured error handling with meaningful messages
 - **Request Tracking**: Unique request IDs for debugging
+
+#### Task 1.2 Features
+
+- **WebSocket Client Class**: Reusable WebSocket client with automatic reconnection
+- **Real-time Communication**: Bidirectional messaging with JSON support
+- **Connection Management**: Auto-reconnection with exponential backoff
+- **Message Broadcasting**: Support for broadcasting messages to all clients
+- **Connection Statistics**: Live tracking of WebSocket connection metrics
 - **Enhanced Headers**: Automatic correlation ID injection
 
-### Test Page (`app/test/page.tsx`)
+### Test Page (`app/test/page.tsx`) - Task 1.1
 
 - **Real-time Testing**: Interactive buttons for API endpoint testing
 - **Live Logs**: Console-style log display with timestamps and color coding
 - **Response Display**: Structured display of API responses with JSON formatting
 - **Error Visualization**: Clear error messages with status codes
 - **Progress Tracking**: Visual indicators for request status
+
+### WebSocket Test Page (`app/websocket-test/page.tsx`) - Task 1.2
+
+- **Real-time WebSocket Testing**: Interactive WebSocket connection management
+- **Multiple Endpoints**: Support for `/ws` and `/ws/test` endpoints
+- **Live Connection Status**: Real-time connection monitoring with statistics
+- **Message Controls**: Send custom messages, ping/pong, broadcast functionality
+- **Live Logs**: Console-style real-time logging of all WebSocket activity
+- **Connection Statistics**: Live tracking of connections and message counts
+- **Auto-reconnection**: Visual feedback for connection lifecycle events
 
 ## 🧪 Testing Interface Features
 

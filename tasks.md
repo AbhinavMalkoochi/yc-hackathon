@@ -66,36 +66,37 @@ Each task is designed to be:
 
 ---
 
-### Task 1.2: WebSocket Real-time Communication Setup
+### Task 1.2: Streaming Response Real-time Communication Setup
 
 **Priority**: Critical  
-**Estimated Time**: 2-3 hours  
+**Estimated Time**: 1-2 hours  
 **Dependencies**: Task 1.1
 
-**Description**: Establish WebSocket connection between FastAPI and Next.js for real-time updates.
+**Description**: Establish streaming response from FastAPI to Next.js for real-time updates (unidirectional communication).
 
 **Implementation**:
 
-- Add WebSocket endpoint in FastAPI (`/ws`)
-- Create Next.js WebSocket client component
+- Add streaming endpoint in FastAPI (`/api/stream`)
+- Use FastAPI StreamingResponse for real-time data streaming
+- Create Next.js EventSource client for consuming streams
 - Implement connection status indicator
-- Add message sending/receiving with timestamps
-- Handle connection failures and reconnection
+- Add real-time data display with timestamps
+- Handle connection failures and auto-reconnection
 
 **Acceptance Criteria**:
 
-- [ ] WebSocket connection establishes successfully
-- [ ] Real-time messages sent from backend appear on frontend
+- [ ] Streaming endpoint sends real-time data to frontend
+- [ ] Frontend receives and displays streamed data immediately
 - [ ] Connection status indicator shows current state
 - [ ] Automatic reconnection on connection loss
-- [ ] Message history persists during session
+- [ ] Stream data persists during session
 
 **Testing**:
 
-- Send test messages through WebSocket
-- Verify real-time updates without page refresh
+- Connect to stream endpoint and verify real-time updates
+- Verify updates appear without page refresh
 - Test reconnection by stopping/starting FastAPI server
-- Check message ordering and timestamps
+- Check data ordering and timestamps
 
 ---
 
@@ -616,7 +617,7 @@ This task structure ensures rapid MVP development with continuous testing and va
 ### Phase 1: Foundation & Real-time Infrastructure
 
 - [x] **Task 1.1**: Basic FastAPI-Next.js Integration Test ✅ **COMPLETED**
-- [ ] **Task 1.2**: WebSocket Real-time Communication Setup
+- [x] **Task 1.2**: Streaming Response Real-time Communication Setup ✅ **COMPLETED**
 - [ ] **Task 1.3**: Convex Database Integration & Real-time Sync
 
 ### Phase 2: Flow Generation & Management

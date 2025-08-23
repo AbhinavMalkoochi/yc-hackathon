@@ -189,18 +189,37 @@ Each service includes comprehensive testing through frontend interfaces:
 
 ## 📋 Current Status
 
-### ✅ Completed Endpoints (Task 1.1)
+### ✅ Completed Endpoints (Tasks 1.1 & 1.2)
+
+#### HTTP Endpoints
 
 - `GET /` - Root endpoint with version info
 - `GET /api/message` - Test message endpoint with timestamps
-- `GET /api/test` - **NEW**: Task 1.1 integration test endpoint with comprehensive data
+- `GET /api/test` - Task 1.1 integration test endpoint with comprehensive data
+- `GET /api/websocket-stats` - **NEW**: WebSocket connection statistics
 - `GET /health` - Enhanced health check with service info and timestamps
 
+#### WebSocket Endpoints
+
+- `WS /ws` - **NEW**: Basic WebSocket endpoint with JSON message handling
+- `WS /ws/test` - **NEW**: Task 1.2 test WebSocket with periodic updates
+
 ### 🔧 Enhanced Features
+
+#### Task 1.1 Features
 
 - **Comprehensive Logging**: Request/response logging with correlation IDs
 - **Request Middleware**: Automatic request timing and correlation tracking
 - **Enhanced CORS**: Configured for Next.js frontend integration
+
+#### Task 1.2 Features
+
+- **WebSocket Connection Manager**: Centralized connection lifecycle management
+- **Real-time Message Handling**: JSON message parsing and routing
+- **Connection Statistics**: Live tracking of active connections and message counts
+- **Automatic Reconnection**: Client-side reconnection with exponential backoff
+- **Message Broadcasting**: Send messages to all connected clients
+- **Periodic Updates**: Background tasks for real-time data streaming
 - **Structured Responses**: Pydantic models for type safety and validation
 - **Error Handling**: Detailed error responses with status codes
 

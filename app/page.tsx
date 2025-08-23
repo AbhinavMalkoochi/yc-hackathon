@@ -25,18 +25,28 @@ export default function Home() {
           AI Browser Testing Agent
         </h1>
 
-        {/* Task 1.1 Test Link */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 max-w-2xl mx-auto">
-          <h2 className="text-xl font-semibold text-blue-900 mb-2">Development Testing</h2>
-          <p className="text-blue-700 mb-4">
-            Access the Task 1.1 test page to verify FastAPI-Next.js integration with comprehensive logging.
-          </p>
-          <Link
-            href="/test"
-            className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-medium transition-colors"
-          >
-            🧪 Task 1.1: Integration Test
-          </Link>
+        {/* Development Testing Links */}
+        <div className="space-y-4 max-w-4xl mx-auto">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-blue-900 mb-2">Development Testing</h2>
+            <p className="text-blue-700 mb-4">
+              Access testing interfaces for each completed task to verify functionality.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Link
+                href="/test"
+                className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-medium transition-colors text-center"
+              >
+                🧪 Task 1.1: API Integration Test
+              </Link>
+              <Link
+                href="/streaming-test"
+                className="inline-block bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-md font-medium transition-colors text-center"
+              >
+                📡 Task 1.2: Streaming Test
+              </Link>
+            </div>
+          </div>
         </div>
 
         {/* FastAPI Test Component - Available to all users */}
