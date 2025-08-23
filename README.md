@@ -5,19 +5,70 @@ This is a [Convex](https://convex.dev/) project created with [`npm create convex
 After the initial setup (<2 minutes) you'll have a working full-stack app using:
 
 - Convex as your backend (database, server logic)
+- FastAPI as your additional API backend (REST API endpoints)
 - [React](https://react.dev/) as your frontend (web page interactivity)
 - [Next.js](https://nextjs.org/) for optimized web hosting and page routing
 - [Tailwind](https://tailwindcss.com/) for building great looking accessible UI
 - [Clerk](https://clerk.com/) for authentication
+- [Zod](https://zod.dev/) for runtime type validation
 
 ## Get started
 
 If you just cloned this codebase and didn't use `npm create convex`, run:
 
-```
+```bash
 npm install
+```
+
+### Running the Full Stack
+
+The project now includes both Convex and FastAPI backends. To run everything:
+
+```bash
 npm run dev
 ```
+
+This will start:
+
+- Next.js frontend on `http://localhost:3000`
+- Convex backend
+- FastAPI server on `http://localhost:8000`
+
+### Running Components Separately
+
+You can also run components individually:
+
+```bash
+# Frontend only
+npm run dev:frontend
+
+# Convex backend only
+npm run dev:backend
+
+# FastAPI server only
+npm run dev:fastapi
+```
+
+### FastAPI Setup
+
+Before running the FastAPI server, install Python dependencies:
+
+```bash
+cd backend
+pip install -r requirements.txt
+```
+
+### Testing the Connection
+
+The main page includes a FastAPI connection test component with buttons to:
+
+- Test the `/api/message` endpoint
+- Check the health of the FastAPI server
+
+You can also access the FastAPI documentation at:
+
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
 
 If you're reading this README on GitHub and want to use this template, run:
 

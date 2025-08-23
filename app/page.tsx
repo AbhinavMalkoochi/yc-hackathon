@@ -11,6 +11,7 @@ import Link from "next/link";
 import { SignUpButton } from "@clerk/nextjs";
 import { SignInButton } from "@clerk/nextjs";
 import { UserButton } from "@clerk/nextjs";
+import FastApiTest from "../components/FastApiTest";
 
 export default function Home() {
   return (
@@ -23,6 +24,10 @@ export default function Home() {
         <h1 className="text-4xl font-bold text-center">
           Convex + Next.js + Clerk
         </h1>
+
+        {/* FastAPI Test Component - Available to all users */}
+        <FastApiTest />
+
         <Authenticated>
           <Content />
         </Authenticated>

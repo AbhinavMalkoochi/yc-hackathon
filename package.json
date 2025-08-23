@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "npm-run-all --parallel dev:frontend dev:backend",
+    "dev": "npm-run-all --parallel dev:frontend dev:backend dev:fastapi",
     "dev:frontend": "next dev",
     "dev:backend": "convex dev",
+    "dev:fastapi": "cd backend && python main.py",
     "predev": "convex dev --until-success && convex dashboard",
     "build": "next build",
     "start": "next start",
@@ -17,7 +18,8 @@
     "convex": "^1.23.0",
     "next": "15.2.3",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
