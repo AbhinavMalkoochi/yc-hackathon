@@ -1,102 +1,341 @@
-# Welcome to your Convex + Next.js + Clerk app
+# YC Agent - AI Browser Testing Orchestrator
 
-This is a [Convex](https://convex.dev/) project created with [`npm create convex`](https://www.npmjs.com/package/create-convex).
+A comprehensive AI-powered browser testing platform that orchestrates automated testing flows using OpenAI and Browser Use Cloud.
 
-After the initial setup (<2 minutes) you'll have a working full-stack app using:
+## 🏗️ Architecture Overview
 
-- Convex as your backend (database, server logic)
-- FastAPI as your additional API backend (REST API endpoints)
-- [React](https://react.dev/) as your frontend (web page interactivity)
-- [Next.js](https://nextjs.org/) for optimized web hosting and page routing
-- [Tailwind](https://tailwindcss.com/) for building great looking accessible UI
-- [Clerk](https://clerk.com/) for authentication
-- [Zod](https://zod.dev/) for runtime type validation
+This full-stack application consists of three tightly integrated components:
 
-## Get started
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Next.js       │────│   FastAPI       │────│   Convex        │
+│   Frontend      │    │   Backend       │    │   Database      │
+│                 │    │                 │    │                 │
+│ • Admin UI      │    │ • Health Checks │    │ • Real-time     │
+│ • Dashboard     │    │ • Admin Routes  │    │   Sync          │
+│ • Real-time     │    │ • Service Mgmt  │    │ • Type-safe     │
+│   Updates       │    │ • API Gateway   │    │   Schema        │
+│ • TypeScript    │    │ • Python/uv     │    │ • Edge Functions│
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
 
-If you just cloned this codebase and didn't use `npm create convex`, run:
+## 🎯 Tech Stack
+
+### Frontend (Next.js 15)
+
+- **Framework**: Next.js with App Router and Server Components
+- **Styling**: Tailwind CSS 4 with dark mode support
+- **Authentication**: Clerk integration for user management
+- **Type Safety**: TypeScript with Zod validation
+- **Real-time**: Convex subscriptions for live data updates
+- **Icons**: Lucide React for consistent iconography
+
+### Backend (FastAPI)
+
+- **Framework**: FastAPI with async/await support
+- **Dependency Management**: uv for fast Python package management
+- **API Documentation**: Auto-generated OpenAPI/Swagger docs
+- **Health Monitoring**: Comprehensive service health checks
+- **Admin Interface**: RESTful admin endpoints for data management
+
+### Database (Convex)
+
+- **Type**: Real-time database with TypeScript SDK
+- **Schema**: Strongly typed schema with validation
+- **Functions**: Server-side functions for complex operations
+- **Subscriptions**: Real-time data synchronization
+- **Authentication**: Integrated with Clerk
+
+## 🚀 Development Status
+
+### ✅ Completed Vertical Slices
+
+#### 1. Environment Setup with Testing Dashboard
+
+- **Health monitoring** for all external services (OpenAI, Browser Use Cloud, Convex)
+- **Real-time service status** indicators with color coding
+- **Configuration validation** and detailed error reporting
+- **Environment variable** management with validation
+
+#### 2. Database Schema with Admin Interface
+
+- **Complete database schema** (Test Runs, Flows, Browser Sessions, Events, Execution Steps)
+- **Comprehensive admin dashboard** with full CRUD operations
+- **Real-time data synchronization** with Convex
+- **Sample data generation** for testing and development
+- **Professional UI components** with sorting, filtering, and search
+
+### 🔄 In Progress
+
+#### 3. OpenAI Flow Generation with Live Testing
+
+- OpenAI GPT-4 integration for test flow generation
+- Live testing interface with prompt templates
+- Flow validation and editing capabilities
+
+### 📋 Upcoming Features
+
+- Browser Use Cloud integration with session management
+- Real-time browser session orchestration
+- WebSocket communication for live updates
+- Live viewport streaming
+- Multi-session browser grid
+- Complete workflow automation
+
+## 🛠️ Quick Start
+
+### Prerequisites
+
+- **Node.js** 18+ with npm
+- **Python** 3.11+
+- **Git** for version control
+
+### 1. Clone and Install Dependencies
 
 ```bash
+git clone <repository-url>
+cd yc-agent
 npm install
 ```
 
-### Running the Full Stack
-
-The project now includes both Convex and FastAPI backends. To run everything:
-
-```bash
-npm run dev
-```
-
-This will start:
-
-- Next.js frontend on `http://localhost:3000`
-- Convex backend
-- FastAPI server on `http://localhost:8000`
-
-### Running Components Separately
-
-You can also run components individually:
-
-```bash
-# Frontend only
-npm run dev:frontend
-
-# Convex backend only
-npm run dev:backend
-
-# FastAPI server only
-npm run dev:fastapi
-```
-
-### FastAPI Setup
-
-Before running the FastAPI server, install Python dependencies:
+### 2. Backend Setup (FastAPI with uv)
 
 ```bash
 cd backend
+
+# Install uv (recommended for faster dependency management)
+pip install uv
+
+# Install all dependencies
+uv sync
+
+# Alternative: using pip
 pip install -r requirements.txt
 ```
 
-### Testing the Connection
+### 3. Environment Configuration
 
-The main page includes a FastAPI connection test component with buttons to:
+```bash
+# Copy environment template
+cp env.example .env
 
-- Test the `/api/message` endpoint
-- Check the health of the FastAPI server
-
-You can also access the FastAPI documentation at:
-
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
-
-If you're reading this README on GitHub and want to use this template, run:
-
-```
-npm create convex@latest -- -t nextjs-clerk
+# Edit .env with your API keys and configuration
+# Required: OPENAI_API_KEY, CONVEX_DEPLOYMENT_URL
 ```
 
-Then:
+### 4. Database Setup (Convex)
 
-1. Open your app. There should be a "Claim your application" button from Clerk in the bottom right of your app.
-2. Follow the steps to claim your application and link it to this app.
-3. Follow step 3 in the [Convex Clerk onboarding guide](https://docs.convex.dev/auth/clerk#get-started) to create a Convex JWT template.
-4. Uncomment the Clerk provider in `convex/auth.config.ts`
-5. Paste the Issuer URL as `CLERK_JWT_ISSUER_DOMAIN` to your dev deployment environment variable settings on the Convex dashboard (see [docs](https://docs.convex.dev/auth/clerk#configuring-dev-and-prod-instances))
+```bash
+# Install Convex CLI (if not already installed)
+npm install -g convex
 
-If you want to sync Clerk user data via webhooks, check out this [example repo](https://github.com/thomasballinger/convex-clerk-users-table/).
+# Deploy Convex functions and schema
+npx convex deploy
+```
 
-## Learn more
+### 5. Run the Application
 
-To learn more about developing your project with Convex, check out:
+```bash
+# Start all services (frontend, Convex, FastAPI)
+npm run dev
+```
 
-- The [Tour of Convex](https://docs.convex.dev/get-started) for a thorough introduction to Convex principles.
-- The rest of [Convex docs](https://docs.convex.dev/) to learn about all Convex features.
-- [Stack](https://stack.convex.dev/) for in-depth articles on advanced topics.
+This starts:
 
-## Join the community
+- **Next.js frontend** at `http://localhost:3000`
+- **Convex backend** (real-time database)
+- **FastAPI server** at `http://localhost:8000`
 
-Join thousands of developers building full-stack apps with Convex:
+### 6. Verify Installation
 
-- Join the [Convex Discord community](https://convex.dev/community) to get help in real-time.
-- Follow [Convex on GitHub](https://github.com/get-convex/), star and contribute to the open-source implementation of Convex.
+1. **Health Dashboard**: Visit `http://localhost:3000` to see service health monitoring
+2. **Admin Dashboard**: Use the admin interface to create and manage test data
+3. **API Documentation**: Visit `http://localhost:8000/docs` for interactive API docs
+4. **Convex Dashboard**: Check real-time data at your Convex dashboard URL
+
+## 📂 Project Structure
+
+```
+yc-agent/
+├── README.md                    # This file
+├── frontend/README.md          # Frontend-specific documentation
+├── backend/README.md           # Backend-specific documentation
+├──
+├── app/                        # Next.js app directory
+│   ├── page.tsx               # Main dashboard page
+│   └── layout.tsx             # App layout and providers
+├──
+├── components/                 # React components
+│   ├── HealthDashboard.tsx    # Service health monitoring
+│   ├── AdminDashboard.tsx     # Database admin interface
+│   ├── DataTable.tsx          # Reusable data table component
+│   └── FastApiTest.tsx        # API connection testing
+├──
+├── lib/                       # Frontend utilities
+│   └── api.ts                 # API client with error handling
+├──
+├── convex/                    # Convex backend
+│   ├── schema.ts              # Database schema definition
+│   ├── testRuns.ts           # Test run CRUD operations
+│   ├── flows.ts              # Flow management functions
+│   ├── browserSessions.ts    # Session management
+│   └── sessionEvents.ts      # Event logging
+├──
+├── backend/                   # FastAPI backend
+│   ├── main.py               # FastAPI application entry point
+│   ├── config.py             # Environment configuration
+│   ├── pyproject.toml        # uv dependency management
+│   ├── requirements.txt      # pip fallback dependencies
+│   ├── services/             # Business logic services
+│   │   └── health_checker.py # Service health monitoring
+│   └── routers/              # API route modules
+│       └── admin.py          # Admin API endpoints
+└──
+└── tasks.md                   # Development task breakdown
+```
+
+## 🔧 Development Commands
+
+### Frontend Development
+
+```bash
+# Start frontend only
+npm run dev:frontend
+
+# Build for production
+npm run build
+
+# Run linting
+npm run lint
+```
+
+### Backend Development
+
+```bash
+cd backend
+
+# Run with uv (recommended)
+uv run python main.py
+
+# Run with pip
+python main.py
+
+# Install new dependencies
+uv add package-name
+
+# Update dependencies
+uv sync
+```
+
+### Convex Development
+
+```bash
+# Deploy schema and functions
+npx convex deploy
+
+# Start Convex dev server
+npm run dev:backend
+
+# Open Convex dashboard
+npx convex dashboard
+```
+
+## 🧪 Testing
+
+### Health Dashboard Testing
+
+1. Visit `http://localhost:3000`
+2. Check the Health Dashboard section
+3. Verify all services show "healthy" status
+4. Test individual service connections
+
+### Admin Dashboard Testing
+
+1. Navigate to the Admin Dashboard tab
+2. Click "Create Sample Data" to generate test data
+3. Verify CRUD operations work correctly
+4. Test data filtering and search functionality
+
+### API Testing
+
+1. Visit `http://localhost:8000/docs` for interactive API documentation
+2. Test admin endpoints with sample data
+3. Verify health check endpoints return correct status
+
+## 🌐 API Endpoints
+
+### Health Monitoring
+
+- `GET /api/health/all` - Check all services
+- `GET /api/health/openai` - OpenAI API status
+- `GET /api/health/convex` - Convex database status
+- `GET /api/health/browser-use-cloud` - Browser Use Cloud status
+
+### Admin Operations
+
+- `GET /api/admin/test-runs` - List test runs
+- `POST /api/admin/test-runs` - Create test run
+- `GET /api/admin/flows/{test_run_id}` - List flows for test run
+- `POST /api/admin/sample-data` - Generate sample data
+- `GET /api/admin/stats` - System statistics
+
+## 🔍 Monitoring and Debugging
+
+### Real-time Monitoring
+
+- **Health Dashboard**: Live service status with color-coded indicators
+- **Admin Dashboard**: Real-time data updates using Convex subscriptions
+- **API Logs**: Detailed logging in development mode
+- **Error Tracking**: Comprehensive error messages with stack traces
+
+### Development Tools
+
+- **Hot Reload**: All components support hot reloading during development
+- **Type Safety**: End-to-end TypeScript for catching errors early
+- **API Documentation**: Auto-generated interactive docs
+- **Sample Data**: One-click test data generation
+
+## 🚀 Deployment
+
+### Frontend (Vercel)
+
+```bash
+npm run build
+# Deploy to Vercel or your preferred platform
+```
+
+### Backend (Docker/Cloud)
+
+```bash
+cd backend
+# Build Docker image or deploy to cloud provider
+```
+
+### Database (Convex Cloud)
+
+Convex automatically deploys to the cloud. Configure production deployment URL in your environment variables.
+
+## 🤝 Contributing
+
+1. Check `tasks.md` for current development priorities
+2. Follow the vertical slice development approach
+3. Ensure all features have corresponding tests
+4. Update documentation for any new features
+
+## 📄 License
+
+[Add your license information here]
+
+## 🆘 Support
+
+For issues and support:
+
+1. Check the health dashboard for service status
+2. Review logs in the development console
+3. Consult the API documentation at `/docs`
+4. Check individual component README files for detailed information
+
+---
+
+**Last Updated**: 2025-01-25
+**Version**: 2.0.0 (Post Vertical Slice 2)
