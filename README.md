@@ -29,49 +29,11 @@ pip install -r backend/requirements.txt
 npx convex dev
 
 # 3. Configure environment variables
-# See environment setup section below
+# See docs/setup.md for detailed configuration
 
 # 4. Start development
 npm run dev
 ```
-
-## 🔧 Environment Setup
-
-### Frontend (.env.local)
-
-Create a `.env.local` file in the root directory:
-
-```bash
-# Required: Convex database connection URL
-NEXT_PUBLIC_CONVEX_URL=your_convex_deployment_url_here
-
-# Required: FastAPI backend URL
-NEXT_PUBLIC_FASTAPI_URL=http://localhost:8000
-
-# Optional: Clerk authentication
-CLERK_JWT_ISSUER_DOMAIN=your_clerk_jwt_issuer_domain_here
-```
-
-### Backend (.env)
-
-Create a `.env` file in the `backend/` directory:
-
-```bash
-# Required: Google Gemini API key for LLM features
-GEMINI_API_KEY=your_gemini_api_key_here
-
-# Required: Browser Use Cloud API key for browser automation
-BROWSER_USE_API_KEY=your_browser_use_api_key_here
-
-# Optional: Enhanced logging
-LOG_LEVEL=INFO
-```
-
-### How to Get API Keys:
-
-1. **GEMINI_API_KEY**: [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. **BROWSER_USE_API_KEY**: [Browser Use Cloud](https://browseruse.com/)
-3. **NEXT_PUBLIC_CONVEX_URL**: Run `npx convex dev` for local development
 
 ## 📋 Development Progress
 
@@ -89,23 +51,12 @@ LOG_LEVEL=INFO
 
 **✅ Phase 3 Complete**: Browser Use Integration & Parallel Sessions
 
-- Task 3.1-3.11: Complete Browser Use Cloud integration ✅
-- Task 3.12: Unified Dashboard UI with Apple liquid glass theme ✅
-
 ## 🚀 Live Features
 
-**Unified Dashboard Interface:**
+Access the main application and comprehensive monitoring:
 
-- 🎨 **Apple Liquid Glass Theme**: Beautiful, minimalistic design with backdrop-blur effects
-- 📊 **Session Overview**: Real-time statistics and session information
-- 🔄 **Flow Management**: Create, edit, approve, and execute test flows
-- 👁️ **Live Browser Sessions**: Embedded live browser viewports with real-time streaming
-- 📱 **Responsive Design**: Optimized for all screen sizes with smooth animations
-
-**Core Functionality:**
-
-- 🏠 **Main Application**: `/` - Unified dashboard for complete workflow management
-- 📊 **Session Logs**: `/logs/[taskId]` - Comprehensive logs page with live preview
+- 🏠 **Main Application**: `/` - Flow generation, editing, and browser session management
+- 📊 **Session Logs**: `/logs/[taskId]` - Comprehensive logs page with live preview, network logs, and execution steps
 - 🧪 **Testing**: `/test` - Backend integration testing (when needed)
 
 ## 📚 Documentation
@@ -127,23 +78,22 @@ This isn't your typical full-stack template:
 
 1. **Frontend-First Database**: Convex runs directly in React components, not through API calls
 2. **Real-time Everything**: Live updates, streaming, and instant feedback across all interfaces
-3. **Unified Interface**: Single dashboard combining all functionality for seamless developer experience
+3. **Progressive Testing**: Each development task has its own dedicated test interface
 4. **AI-First Design**: Built from the ground up for LLM integration and intelligent automation
 5. **Functional Backend**: Clean, stateless FastAPI functions without classes or complexity
-6. **Apple Liquid Glass Theme**: Beautiful, modern UI with backdrop-blur and smooth animations
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: Next.js 14, TypeScript, Tailwind CSS, Convex React Hooks, Framer Motion
-- **Backend**: FastAPI, Python, Pydantic, Google Gemini API, Uvicorn
+- **Frontend**: Next.js 14, TypeScript, Tailwind CSS, Convex React Hooks
+- **Backend**: FastAPI, Python, Pydantic, OpenAI API, Uvicorn
 - **Database**: Convex (real-time, serverless, integrated)
 - **Development**: TypeScript, ESLint, Hot Reload, Interactive Testing
 
 ## 📈 Current Status
 
-**Ready for Production**: Complete AI-powered browser testing platform with unified interface, flow generation, editing, parallel execution, and comprehensive monitoring.
+**Ready for Production**: Complete AI-powered browser testing platform with flow generation, editing, parallel execution, and comprehensive monitoring.
 
-**Current Status**: All major features implemented with beautiful, unified UI. Platform supports end-to-end browser automation workflow with Apple liquid glass design aesthetic.
+**Current Status**: All major features implemented and ready for testing. Platform supports end-to-end browser automation workflow.
 
 ---
 

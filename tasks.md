@@ -90,43 +90,17 @@
 - **Key Insight**: Cleaner codebase with focused functionality and better user experience
 - **Working Pattern**: Removed `/browser-test`, `/convex-test`, and other test pages
 
-### ✅ Task 3.12: Unified Dashboard UI
-
-- **Status**: COMPLETED
-- **Implementation**: Created unified, beautiful dashboard with Apple liquid glass style theme
-- **Key Insight**: Combined all fragmented information into one cohesive screen with minimalistic design
-- **Working Pattern**:
-  - Single unified interface showing session overview, flows, and live browser sessions
-  - Apple liquid glass style with backdrop-blur, gradients, and smooth animations
-  - Removed "View Details" links and unnecessary navigation
-  - Clean, minimalistic design focused on developer experience
-  - Updated API configuration to use environment variables instead of hardcoded URLs
-
-### ✅ Task 3.13: UI Simplification & Bug Fixes
-
-- **Status**: COMPLETED
-- **Implementation**: Simplified session overview, removed gradients, fixed browser sessions disappearing
-- **Key Insight**: Made interface more minimalistic and functional while fixing state management issues
-- **Working Pattern**:
-  - Simplified session overview cards with clean white backgrounds
-  - Removed gradient backgrounds for cleaner, more professional look
-  - Added back "View Details" links for browser sessions
-  - Fixed browser sessions disappearing by improving state management
-  - Added debug section for development troubleshooting
-  - Improved session switching to preserve browser session state
-
 ## CURRENT TASK
 
-### 🔄 Task 3.14: Final Testing & Validation
+### 🔄 Task 3.12: Final Testing & Validation
 
 - **Status**: PENDING
-- **Goal**: Test all implemented features including unified dashboard, flow editing, and session management
+- **Goal**: Test all implemented features including flow editing, logs page, and session management
 - **Requirements**:
-  - Verify unified dashboard displays all information correctly
-  - Test flow creation, editing, and deletion functionality
-  - Validate live browser session embedding and streaming
-  - Ensure browser sessions don't disappear when switching sessions
-  - Confirm environment variables are properly configured
+  - Verify flow creation, editing, and deletion works correctly
+  - Test View Logs button opens comprehensive logs page
+  - Validate all Browser Use data is displayed properly in logs page
+  - Confirm network logs and execution steps are visible
 
 ## NEXT TASKS
 
