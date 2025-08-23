@@ -76,6 +76,8 @@ const HomePage: FC = () => {
   const [selectedSessionLogs, setSelectedSessionLogs] = useState<string | null>(null);
   const [sessionLogs, setSessionLogs] = useState<Record<string, SessionLog>>({});
   const [activeStreams, setActiveStreams] = useState<Record<string, EventSource>>({});
+  const [selectedSessionDetails, setSelectedSessionDetails] = useState<string | null>(null);
+  const [sessionDetails, setSessionDetails] = useState<Record<string, any>>({});
 
   // --- MEMOIZED VALUES ---
   const approvedFlows = useMemo(() => flows.filter(f => f.status === 'approved'), [flows]);
@@ -252,6 +254,27 @@ const HomePage: FC = () => {
   };
 
   const getApprovedFlows = () => flows.filter(flow => flow.approved);
+
+  // Fetch detailed session information
+  const fetchSessionDetails = async (taskId: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/browser-cloud/task/${taskId}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const details = await response.json();
+      setSessionDetails(prev => ({
+        ...prev,
+        [taskId]: details
+      }));
+
+      return details;
+    } catch (error) {
+      console.error('Failed to fetch session details:', error);
+      return null;
+    }
+  };
 
   // Start streaming logs for a task
   const startTaskStreaming = (taskId: string) => {
@@ -520,7 +543,14 @@ const HomePage: FC = () => {
                   initial={{ scale: 0.95, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ delay: index * 0.1 }}
-                  className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden"
+                  className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden cursor-pointer hover:shadow-xl transition-all"
+                  onClick={() => {
+                    console.log("Session clicked:", session.taskId, session);
+                    if (session.taskId) {
+                      setSelectedSessionDetails(session.taskId);
+                      fetchSessionDetails(session.taskId);
+                    }
+                  }}
                 >
                   {/* Session Header */}
                   <div className="p-4 bg-gray-50 border-b border-gray-200">
@@ -535,7 +565,14 @@ const HomePage: FC = () => {
                           <span className="text-xs text-green-600 font-medium">LIVE</span>
                         </div>
                         <button
-                          onClick={() => setSelectedSessionLogs(session.taskId || null)}
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent session card click
+                            console.log("View Logs clicked for session:", session.taskId, session);
+                            console.log("Current sessionLogs:", sessionLogs);
+                            if (session.taskId) {
+                              setSelectedSessionLogs(session.taskId);
+                            }
+                          }}
                           className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
                         >
                           View Logs
@@ -574,6 +611,217 @@ const HomePage: FC = () => {
                 </motion.div>
               ))}
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Session Details Modal */}
+      <AnimatePresence>
+        {selectedSessionDetails && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+            onClick={() => setSelectedSessionDetails(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="p-6 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-800">Session Details</h3>
+                  <p className="text-sm text-gray-600">Task ID: {selectedSessionDetails}</p>
+                </div>
+                <button
+                  onClick={() => setSelectedSessionDetails(null)}
+                  className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Session Details Content */}
+              <div className="flex h-[calc(90vh-120px)]">
+                {/* Left Panel - Session Info */}
+                <div className="w-1/2 p-6 border-r border-gray-200 overflow-y-auto">
+                  <div className="space-y-6">
+                    {/* Session Overview */}
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-800 mb-3">Session Overview</h4>
+                      {sessionDetails[selectedSessionDetails] ? (
+                        <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">Status:</span>
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${sessionDetails[selectedSessionDetails].status === 'running' ? 'bg-yellow-100 text-yellow-800' :
+                              sessionDetails[selectedSessionDetails].status === 'completed' ? 'bg-green-100 text-green-800' :
+                                sessionDetails[selectedSessionDetails].status === 'failed' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                              }`}>
+                              {sessionDetails[selectedSessionDetails].status}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">Steps Completed:</span>
+                            <span className="text-blue-600 font-medium">
+                              {sessionDetails[selectedSessionDetails].steps_count || 0}
+                            </span>
+                          </div>
+
+                          {sessionDetails[selectedSessionDetails].live_url && (
+                            <div>
+                              <span className="font-medium">Live URL:</span>
+                              <a
+                                href={sessionDetails[selectedSessionDetails].live_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block text-blue-600 hover:underline text-sm mt-1 break-all"
+                              >
+                                {sessionDetails[selectedSessionDetails].live_url}
+                              </a>
+                            </div>
+                          )}
+
+                          {sessionDetails[selectedSessionDetails].started_at && (
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">Started:</span>
+                              <span className="text-sm text-gray-600">
+                                {new Date(sessionDetails[selectedSessionDetails].started_at).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+
+                          {sessionDetails[selectedSessionDetails].finished_at && (
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">Finished:</span>
+                              <span className="text-sm text-gray-600">
+                                {new Date(sessionDetails[selectedSessionDetails].finished_at).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+
+                          {sessionDetails[selectedSessionDetails].is_success !== null && (
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">Success:</span>
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${sessionDetails[selectedSessionDetails].is_success
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                                }`}>
+                                {sessionDetails[selectedSessionDetails].is_success ? 'Yes' : 'No'}
+                              </span>
+                            </div>
+                          )}
+
+                          {sessionDetails[selectedSessionDetails].done_output && (
+                            <div>
+                              <span className="font-medium">Output:</span>
+                              <div className="mt-1 p-2 bg-white border rounded text-sm">
+                                {sessionDetails[selectedSessionDetails].done_output}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                          <span className="ml-2 text-gray-600">Loading session details...</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Steps Breakdown */}
+                    {sessionDetails[selectedSessionDetails]?.steps && (
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-800 mb-3">Execution Steps</h4>
+                        <div className="space-y-3 max-h-64 overflow-y-auto">
+                          {sessionDetails[selectedSessionDetails].steps.map((step: any, index: number) => (
+                            <div key={index} className="bg-gray-50 rounded-lg p-3 border-l-4 border-blue-500">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="font-medium text-sm">Step {index + 1}</span>
+                                <span className="text-xs text-gray-500">{step.url}</span>
+                              </div>
+                              {step.next_goal && (
+                                <p className="text-sm text-gray-700 mb-2">
+                                  <strong>Goal:</strong> {step.next_goal}
+                                </p>
+                              )}
+                              {step.evaluation_previous_goal && (
+                                <p className="text-sm text-gray-600">
+                                  <strong>Evaluation:</strong> {step.evaluation_previous_goal}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Panel - Live Logs */}
+                <div className="w-1/2 p-6 overflow-y-auto">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Real-time Logs</h4>
+                  {sessionLogs[selectedSessionDetails]?.logs.length > 0 ? (
+                    <div className="space-y-3">
+                      {sessionLogs[selectedSessionDetails].logs.map((log, index) => (
+                        <div
+                          key={index}
+                          className={`p-3 rounded-lg text-sm ${log.type === 'step' ? 'bg-blue-50 border-blue-200' :
+                            log.type === 'status' ? 'bg-yellow-50 border-yellow-200' :
+                              log.type === 'completion' ? 'bg-green-50 border-green-200' :
+                                'bg-red-50 border-red-200'
+                            } border`}
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="font-medium capitalize text-gray-800">{log.type}</span>
+                            <span className="text-xs text-gray-500">
+                              {new Date(log.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
+
+                          {log.type === 'step' && log.data.step && (
+                            <div className="space-y-1">
+                              <p><strong>Goal:</strong> {log.data.step.next_goal}</p>
+                              {log.data.step.evaluation_previous_goal && (
+                                <p><strong>Evaluation:</strong> {log.data.step.evaluation_previous_goal}</p>
+                              )}
+                            </div>
+                          )}
+
+                          {log.type === 'status' && (
+                            <div className="space-y-1">
+                              <p><strong>Status:</strong> {log.data.status}</p>
+                              <p><strong>Steps:</strong> {log.data.steps_count}</p>
+                            </div>
+                          )}
+
+                          {log.type === 'completion' && (
+                            <div>
+                              <p><strong>Final Status:</strong> {log.data.status}</p>
+                              {log.data.output && <p><strong>Output:</strong> {log.data.output}</p>}
+                            </div>
+                          )}
+
+                          {log.type === 'error' && (
+                            <p className="text-red-700">{log.data.error}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500">No logs available yet...</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
