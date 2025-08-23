@@ -179,6 +179,18 @@ export async function generateFlows(
   });
 }
 
+// Browser Cloud API functions
+export async function executeParallelFlows(flows: string[]) {
+  return apiRequest("/api/browser-cloud/parallel-flows", {
+    method: "POST",
+    body: JSON.stringify({ flows }),
+  });
+}
+
+export function createTaskStreamUrl(taskId: string) {
+  return `${API_BASE_URL}/api/browser-cloud/task/${taskId}/stream`;
+}
+
 // Streaming client utilities
 export interface StreamMessage {
   type: string;
