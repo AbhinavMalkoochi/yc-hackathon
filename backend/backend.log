@@ -261,3 +261,41 @@
 2025-08-23 05:06:40,310 - main - INFO - Gemini client initialized successfully
 2025-08-23 05:06:59,214 - main - INFO - Gemini client initialized successfully
 2025-08-23 05:07:04,657 - main - INFO - Gemini client initialized successfully
+2025-08-23 05:11:03,189 - main - INFO - Gemini client initialized successfully
+2025-08-23 05:11:05,083 - main - INFO - [req_1755943865083] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 05:11:05,087 - main - INFO - Generating flows for prompt: test the youtube.com flow...
+2025-08-23 05:11:05,088 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-08-23 05:11:10,461 - main - INFO - Successfully generated 5 flows in 5.37s
+2025-08-23 05:11:10,461 - main - INFO - [req_1755943865083] Request completed: 200 in 5.3785s
+2025-08-23 05:11:48,977 - main - INFO - [req_1755943908977] Request started: GET http://localhost:8000/api/stream
+2025-08-23 05:11:48,978 - main - INFO - Streaming endpoint accessed for Task 1.2
+2025-08-23 05:11:48,979 - main - INFO - [req_1755943908977] Request completed: 200 in 0.0016s
+2025-08-23 05:13:34,960 - main - INFO - [req_1755944014960] Request started: GET http://localhost:8000/api/stream
+2025-08-23 05:13:34,960 - main - INFO - Streaming endpoint accessed for Task 1.2
+2025-08-23 05:13:34,964 - main - INFO - [req_1755944014960] Request completed: 200 in 0.0045s
+2025-08-23 05:15:20,945 - main - INFO - [req_1755944120945] Request started: GET http://localhost:8000/api/stream
+2025-08-23 05:15:20,946 - main - INFO - Streaming endpoint accessed for Task 1.2
+2025-08-23 05:15:20,947 - main - INFO - [req_1755944120945] Request completed: 200 in 0.0019s
+2025-08-23 05:16:49,208 - main - INFO - [req_1755944209208] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 05:16:49,209 - main - INFO - Generating flows for prompt: asdasdasdasd...
+2025-08-23 05:16:49,210 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-08-23 05:16:56,446 - main - INFO - Successfully generated 5 flows in 7.24s
+2025-08-23 05:16:56,447 - main - INFO - [req_1755944209208] Request completed: 200 in 7.2391s
+2025-08-23 05:17:06,522 - main - INFO - [req_1755944226522] Request started: GET http://localhost:8000/api/stream
+2025-08-23 05:17:06,523 - main - INFO - Streaming endpoint accessed for Task 1.2
+2025-08-23 05:17:06,524 - main - INFO - [req_1755944226522] Request completed: 200 in 0.0013s
+2025-08-23 05:18:51,989 - main - INFO - [req_1755944331989] Request started: GET http://localhost:8000/api/stream
+2025-08-23 05:18:51,990 - main - INFO - Streaming endpoint accessed for Task 1.2
+2025-08-23 05:18:51,990 - main - INFO - [req_1755944331989] Request completed: 200 in 0.0010s
+2025-08-23 05:19:54,061 - main - INFO - [req_1755944394061] Request started: GET http://localhost:8000/health
+2025-08-23 05:19:54,061 - main - INFO - Health check endpoint accessed
+2025-08-23 05:19:54,062 - main - INFO - [req_1755944394061] Request completed: 200 in 0.0011s
+2025-08-23 05:20:02,238 - main - INFO - [req_1755944402238] Request started: GET http://localhost:8000/api/stream
+2025-08-23 05:20:02,238 - main - INFO - Streaming endpoint accessed for Task 1.2
+2025-08-23 05:20:02,239 - main - INFO - [req_1755944402238] Request completed: 200 in 0.0016s
+2025-08-23 05:20:37,434 - main - INFO - [req_1755944437434] Request started: GET http://localhost:8000/api/stream
+2025-08-23 05:20:37,435 - main - INFO - Streaming endpoint accessed for Task 1.2
+2025-08-23 05:20:37,436 - main - INFO - [req_1755944437434] Request completed: 200 in 0.0017s
+2025-08-23 05:22:23,021 - main - INFO - [req_1755944543021] Request started: GET http://localhost:8000/api/stream
+2025-08-23 05:22:23,021 - main - INFO - Streaming endpoint accessed for Task 1.2
+2025-08-23 05:22:23,022 - main - INFO - [req_1755944543021] Request completed: 200 in 0.0017s

@@ -15,6 +15,9 @@ interface TestFlow {
     name: string;
     description: string;
     instructions: string;
+    approved?: boolean;
+    status?: 'pending' | 'approved' | 'executing' | 'completed' | 'failed';
+    estimatedTime?: number; // in seconds
 }
 
 interface GenerationResponse {
@@ -32,6 +35,8 @@ export default function FlowGenerationTestPage() {
     const [editingFlow, setEditingFlow] = useState<number | null>(null);
     const [draggedFlow, setDraggedFlow] = useState<number | null>(null);
     const [generationTime, setGenerationTime] = useState<number | null>(null);
+    const [isExecuting, setIsExecuting] = useState(false);
+    const [executionProgress, setExecutionProgress] = useState<string>('');
 
     // Form states
     const [prompt, setPrompt] = useState("");
@@ -78,7 +83,10 @@ export default function FlowGenerationTestPage() {
         const newFlow: TestFlow = {
             name: "New Test Flow",
             description: "Enter flow description here",
-            instructions: "Enter step-by-step instructions here"
+            instructions: "Enter step-by-step instructions here",
+            approved: false,
+            status: 'pending',
+            estimatedTime: 30 // Default 30 seconds
         };
         setGeneratedFlows([...generatedFlows, newFlow]);
         setEditingFlow(generatedFlows.length);
@@ -134,6 +142,107 @@ export default function FlowGenerationTestPage() {
         setDraggedFlow(null);
     };
 
+    // Flow approval functions
+    const toggleFlowApproval = (index: number) => {
+        const newFlows = [...generatedFlows];
+        const flow = newFlows[index];
+        flow.approved = !flow.approved;
+        flow.status = flow.approved ? 'approved' : 'pending';
+        newFlows[index] = flow;
+        setGeneratedFlows(newFlows);
+        addLog("info", `Flow ${index + 1} ${flow.approved ? 'approved' : 'unapproved'}`);
+    };
+
+    const approveAllFlows = () => {
+        const newFlows = generatedFlows.map(flow => ({
+            ...flow,
+            approved: true,
+            status: 'approved' as const
+        }));
+        setGeneratedFlows(newFlows);
+        addLog("success", "All flows approved");
+    };
+
+    const unapproveAllFlows = () => {
+        const newFlows = generatedFlows.map(flow => ({
+            ...flow,
+            approved: false,
+            status: 'pending' as const
+        }));
+        setGeneratedFlows(newFlows);
+        addLog("info", "All flows unapproved");
+    };
+
+    const estimateExecutionTime = (flows: TestFlow[]): number => {
+        return flows
+            .filter(flow => flow.approved)
+            .reduce((total, flow) => total + (flow.estimatedTime || 30), 0);
+    };
+
+    const getApprovedFlows = (): TestFlow[] => {
+        return generatedFlows.filter(flow => flow.approved);
+    };
+
+    const canStartExecution = (): boolean => {
+        return getApprovedFlows().length > 0 && !isExecuting;
+    };
+
+    // Mock execution function (will be replaced with real Browser Use integration)
+    const startExecution = async () => {
+        const approvedFlows = getApprovedFlows();
+        if (approvedFlows.length === 0) {
+            addLog("error", "No flows approved for execution");
+            return;
+        }
+
+        setIsExecuting(true);
+        addLog("info", `Starting execution of ${approvedFlows.length} approved flows`);
+
+        try {
+            // Update flows to executing status
+            const newFlows = [...generatedFlows];
+            approvedFlows.forEach((_, approvedIndex) => {
+                const originalIndex = generatedFlows.findIndex(flow =>
+                    flow.approved && generatedFlows.indexOf(flow) >= 0
+                );
+                if (originalIndex !== -1) {
+                    newFlows[originalIndex].status = 'executing';
+                }
+            });
+            setGeneratedFlows(newFlows);
+
+            // Mock execution process
+            for (let i = 0; i < approvedFlows.length; i++) {
+                const flow = approvedFlows[i];
+                setExecutionProgress(`Executing flow ${i + 1}/${approvedFlows.length}: ${flow.name}`);
+                addLog("info", `Executing: ${flow.name}`);
+
+                // Simulate execution time
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                // Update flow status to completed
+                const flowIndex = generatedFlows.findIndex(f => f.name === flow.name);
+                if (flowIndex !== -1) {
+                    const updatedFlows = [...newFlows];
+                    updatedFlows[flowIndex].status = 'completed';
+                    setGeneratedFlows(updatedFlows);
+                }
+
+                addLog("success", `Completed: ${flow.name}`);
+            }
+
+            setExecutionProgress('Execution completed successfully');
+            addLog("success", `All ${approvedFlows.length} flows executed successfully`);
+
+        } catch (error) {
+            addLog("error", `Execution failed: ${error}`);
+            setExecutionProgress('Execution failed');
+        } finally {
+            setIsExecuting(false);
+            setTimeout(() => setExecutionProgress(''), 3000);
+        }
+    };
+
     const clearFlows = () => {
         setGeneratedFlows([]);
         setGenerationTime(null);
@@ -163,7 +272,14 @@ export default function FlowGenerationTestPage() {
             const clientTime = (Date.now() - startTime) / 1000;
 
             if (response.status === "success") {
-                setGeneratedFlows(response.flows);
+                // Add default approval properties to generated flows
+                const flowsWithDefaults = response.flows.map((flow, index) => ({
+                    ...flow,
+                    approved: false,
+                    status: 'pending' as const,
+                    estimatedTime: Math.max(20, Math.min(60, flow.instructions.split('\n').length * 10)) // Estimate based on instruction length
+                }));
+                setGeneratedFlows(flowsWithDefaults);
                 setGenerationTime(response.generation_time || clientTime);
                 addLog("success", `Successfully generated ${response.flows.length} flows in ${response.generation_time || clientTime}s`, response);
             } else {
@@ -242,12 +358,46 @@ export default function FlowGenerationTestPage() {
             return (
                 <div
                     className={`border rounded-lg p-4 transition-all duration-200 ${draggedFlow === index ? 'opacity-50' : ''
-                        } ${flowErrors.length > 0 ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200'}`}
+                        } ${flowErrors.length > 0 ? 'border-yellow-300 bg-yellow-50' :
+                            flow.approved ? 'border-green-300 bg-green-50' : 'border-gray-200'}`}
                     draggable
                     onDragStart={() => handleDragStart(index)}
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, index)}
                 >
+                    {/* Approval Checkbox */}
+                    <div className="flex items-center gap-3 mb-3">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={flow.approved || false}
+                                onChange={() => toggleFlowApproval(index)}
+                                className="w-5 h-5 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500 focus:ring-2"
+                                disabled={isExecuting}
+                            />
+                            <span className={`font-medium ${flow.approved ? 'text-green-700' : 'text-gray-600'}`}>
+                                {flow.approved ? '✅ Approved for execution' : '⏸️ Pending approval'}
+                            </span>
+                        </label>
+                        <div className="flex items-center gap-2 ml-auto">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${{
+                                    'pending': 'bg-gray-100 text-gray-800',
+                                    'approved': 'bg-green-100 text-green-800',
+                                    'executing': 'bg-blue-100 text-blue-800',
+                                    'completed': 'bg-emerald-100 text-emerald-800',
+                                    'failed': 'bg-red-100 text-red-800'
+                                }[flow.status || 'pending']
+                                }`}>
+                                {flow.status || 'pending'}
+                            </span>
+                            {flow.estimatedTime && (
+                                <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-medium">
+                                    ~{flow.estimatedTime}s
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
                     <div className="flex items-start justify-between mb-2">
                         <h3 className="font-semibold text-lg text-gray-900 flex-1">
                             {index + 1}. {flow.name}
@@ -389,10 +539,10 @@ export default function FlowGenerationTestPage() {
             <div className="max-w-7xl mx-auto px-4">
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                        Task 2.2: Flow Editing & Management Interface
+                        Task 2.3: Flow Approval & Execution Preparation
                     </h1>
                     <p className="text-gray-600">
-                        Generate, edit, validate, and manage browser test flows with real-time editing capabilities
+                        Generate, edit, approve, and execute browser test flows with comprehensive management and validation
                     </p>
                 </div>
 
@@ -502,12 +652,83 @@ export default function FlowGenerationTestPage() {
                                                 Generated in {generationTime.toFixed(2)}s
                                             </div>
                                         )}
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={addNewFlow}
+                                                className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded text-sm font-medium transition-colors"
+                                                disabled={isExecuting}
+                                            >
+                                                + Add Flow
+                                            </button>
+                                            <button
+                                                onClick={approveAllFlows}
+                                                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded text-sm font-medium transition-colors"
+                                                disabled={isExecuting || generatedFlows.length === 0}
+                                            >
+                                                ✅ Approve All
+                                            </button>
+                                            <button
+                                                onClick={unapproveAllFlows}
+                                                className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded text-sm font-medium transition-colors"
+                                                disabled={isExecuting || generatedFlows.length === 0}
+                                            >
+                                                ⏸️ Unapprove All
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Execution Control Panel */}
+                                <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="font-semibold text-purple-800">Execution Control Panel</h3>
+                                        <div className="flex items-center gap-4 text-sm">
+                                            <span className="text-gray-600">
+                                                Approved: <strong className="text-green-600">{getApprovedFlows().length}</strong>/{generatedFlows.length}
+                                            </span>
+                                            {getApprovedFlows().length > 0 && (
+                                                <span className="text-gray-600">
+                                                    Est. Time: <strong className="text-purple-600">{estimateExecutionTime(generatedFlows)}s</strong>
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {executionProgress && (
+                                        <div className="mb-3 p-2 bg-blue-100 border border-blue-300 rounded text-sm">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                                                <span className="font-medium text-blue-800">{executionProgress}</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="flex items-center gap-3">
                                         <button
-                                            onClick={addNewFlow}
-                                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded text-sm font-medium transition-colors"
+                                            onClick={startExecution}
+                                            disabled={!canStartExecution()}
+                                            className={`px-6 py-3 rounded-md font-medium transition-colors ${canStartExecution()
+                                                    ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                }`}
                                         >
-                                            + Add Flow
+                                            {isExecuting ? (
+                                                <span className="flex items-center gap-2">
+                                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                    Executing...
+                                                </span>
+                                            ) : (
+                                                <span className="flex items-center gap-2">
+                                                    🚀 Start Testing ({getApprovedFlows().length} flows)
+                                                </span>
+                                            )}
                                         </button>
+
+                                        {!canStartExecution() && !isExecuting && (
+                                            <span className="text-sm text-amber-600">
+                                                {getApprovedFlows().length === 0 ? '⚠️ Please approve at least one flow to start execution' : ''}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
 
@@ -515,6 +736,7 @@ export default function FlowGenerationTestPage() {
                                 <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                                     <h3 className="font-medium text-blue-800 mb-1">Flow Management Tips:</h3>
                                     <ul className="text-sm text-blue-700 space-y-1">
+                                        <li>• <strong>Approve:</strong> Check flows you want to execute</li>
                                         <li>• <strong>Edit:</strong> Click "Edit" to modify flow details</li>
                                         <li>• <strong>Reorder:</strong> Drag & drop flows to change execution order</li>
                                         <li>• <strong>Validation:</strong> Yellow flows have validation issues</li>
@@ -538,16 +760,20 @@ export default function FlowGenerationTestPage() {
                                 {/* Flow Summary */}
                                 <div className="mt-6 p-4 bg-gray-50 rounded-lg">
                                     <h3 className="font-medium text-gray-800 mb-2">Flow Summary:</h3>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                                         <div className="text-center">
                                             <div className="text-2xl font-bold text-blue-600">{generatedFlows.length}</div>
                                             <div className="text-gray-600">Total Flows</div>
                                         </div>
                                         <div className="text-center">
-                                            <div className="text-2xl font-bold text-green-600">
-                                                {generatedFlows.filter(flow => validateFlow(flow).length === 0).length}
+                                            <div className="text-2xl font-bold text-green-600">{getApprovedFlows().length}</div>
+                                            <div className="text-gray-600">Approved</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="text-2xl font-bold text-emerald-600">
+                                                {generatedFlows.filter(flow => flow.status === 'completed').length}
                                             </div>
-                                            <div className="text-gray-600">Valid Flows</div>
+                                            <div className="text-gray-600">Completed</div>
                                         </div>
                                         <div className="text-center">
                                             <div className="text-2xl font-bold text-yellow-600">
@@ -560,6 +786,22 @@ export default function FlowGenerationTestPage() {
                                             <div className="text-gray-600">Being Edited</div>
                                         </div>
                                     </div>
+
+                                    {/* Execution Time Estimate */}
+                                    {getApprovedFlows().length > 0 && (
+                                        <div className="mt-4 pt-4 border-t border-gray-200">
+                                            <div className="flex items-center justify-center gap-4 text-sm">
+                                                <span className="text-gray-600">
+                                                    Estimated Total Execution Time:
+                                                    <strong className="text-purple-600 ml-1">{estimateExecutionTime(generatedFlows)}s</strong>
+                                                </span>
+                                                <span className="text-gray-400">|</span>
+                                                <span className="text-gray-600">
+                                                    Ready to execute: <strong className="text-green-600">{getApprovedFlows().length} flows</strong>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}

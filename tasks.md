@@ -220,17 +220,17 @@ Each task is designed to be:
 
 **Acceptance Criteria**:
 
-- [ ] Users can approve/disapprove individual flows
-- [ ] Start button only enabled when at least one flow approved
-- [ ] Execution preparation shows progress indicator
-- [ ] Estimated execution times displayed
-- [ ] Flow status tracking (pending, approved, executing, completed)
+- [x] Users can approve/disapprove individual flows ✅
+- [x] Start button only enabled when at least one flow approved ✅
+- [x] Execution preparation shows progress indicator ✅
+- [x] Estimated execution times displayed ✅
+- [x] Flow status tracking (pending, approved, executing, completed) ✅
 
 **Testing**:
 
-- Approve various flows, verify button state changes
-- Start execution preparation, check status updates
-- Test with no flows approved
+- [x] Approve various flows, verify button state changes ✅
+- [x] Start execution preparation, check status updates ✅
+- [x] Test with no flows approved ✅
 
 ---
 
