@@ -304,3 +304,10 @@
 2025-08-23 05:24:31,885 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
 2025-08-23 05:24:37,642 - main - INFO - Successfully generated 5 flows in 5.76s
 2025-08-23 05:24:37,642 - main - INFO - [req_1755944671883] Request completed: 200 in 5.7588s
+2025-08-23 05:45:27,169 - main - INFO - Gemini client initialized successfully
+2025-08-23 06:45:41,682 - __main__ - INFO - [req_1755949541682] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 06:45:41,685 - __main__ - INFO - [req_1755949541682] Request completed: 404 in 0.0032s
+2025-08-23 06:46:19,806 - __main__ - INFO - [req_1755949579805] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 06:46:19,807 - __main__ - INFO - [req_1755949579805] Request completed: 404 in 0.0016s
+2025-08-23 06:47:23,330 - __main__ - INFO - [req_1755949643330] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 06:47:23,333 - __main__ - INFO - [req_1755949643330] Request completed: 404 in 0.0025s

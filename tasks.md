@@ -234,136 +234,826 @@ Each task is designed to be:
 
 ---
 
-## Phase 3: Browser Use Integration & Parallel Sessions (3-4 days)
+## Phase 3: Browser Use Cloud Integration & Parallel Sessions (2-3 days)
 
-### Task 3.1: Browser Use Library Setup & Single Session Test
+### Task 3.1: Browser Use Cloud API Setup & Single Task Test
 
 **Priority**: Critical  
-**Estimated Time**: 3-4 hours  
+**Estimated Time**: 2-3 hours  
 **Dependencies**: Task 2.3
 
-**Description**: Integrate Browser Use library and test single browser session with basic automation.
+**Description**: Set up Browser Use Cloud API using official SDK and test single task execution with live browser viewing.
 
 **Implementation**:
 
-- Install and configure Browser Use Python library
-- Create browser session manager service
-- Add FastAPI endpoint for single browser test
-- Implement basic browser automation (navigate, click, type)
-- Display browser session status on frontend
+```python
+# Install Browser Use SDK
+pip install browser-use-sdk
+
+# FastAPI Backend Setup
+from browser_use_sdk import BrowserUse
+
+client = BrowserUse(
+    api_key=os.getenv("BROWSER_USE_API_KEY"),
+)
+
+@app.post("/api/browser-cloud/create-task")
+async def create_browser_task(task_request: dict):
+    """Create single browser task using Browser Use Cloud API"""
+    try:
+        # Create task using official SDK
+        task = client.tasks.create(
+            task=task_request["task"],
+            agent_settings={
+                "llm": "gpt-4o",  # or other supported LLMs
+                "start_url": task_request.get("start_url")
+            }
+        )
+
+        # Get session details with live URL
+        session = client.sessions.retrieve(task.session_id)
+
+        return {
+            "task_id": task.id,
+            "session_id": task.session_id,
+            "live_url": session.live_url,  # Key: Live browser viewing URL
+            "status": "started"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/browser-cloud/task/{task_id}")
+async def get_task_status(task_id: str):
+    """Get task status and details"""
+    task = client.tasks.retrieve(task_id)
+    return {
+        "task_id": task.id,
+        "status": task.status,
+        "live_url": task.session.live_url,
+        "steps": task.steps,
+        "is_success": task.is_success,
+        "done_output": task.done_output
+    }
+```
+
+**Frontend Integration**:
+
+```typescript
+// Next.js Frontend
+const createBrowserTask = async (taskDescription: string) => {
+  const response = await fetch("/api/browser-cloud/create-task", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      task: taskDescription,
+      start_url: "https://example.com",
+    }),
+  });
+
+  const result = await response.json();
+
+  // Display live browser session
+  setLiveUrl(result.live_url);
+  setTaskId(result.task_id);
+
+  // Start polling for status updates
+  pollTaskStatus(result.task_id);
+};
+```
 
 **Acceptance Criteria**:
 
-- [ ] Browser Use library successfully installed and configured
-- [ ] Single browser session can be created and controlled
-- [ ] Basic automation actions work (navigate, click, type)
-- [ ] Browser session status visible on frontend
-- [ ] Session cleanup on completion/failure
+- [ ] Browser Use Cloud API key configured and authenticated
+- [ ] Browser Use SDK successfully installed (`pip install browser-use-sdk`)
+- [ ] Single task created using `client.tasks.create()`
+- [ ] Live browser URL (`session.live_url`) returned and displayed
+- [ ] Task status polling works via `client.tasks.retrieve()`
+- [ ] Frontend displays live browser session in iframe
+- [ ] Proper error handling for 402 (insufficient credits) and 404 errors
 
 **Testing**:
 
-- Create single browser session, verify it opens
-- Execute basic navigation and interaction commands
-- Test session cleanup and resource management
+- Create single browser task with simple navigation instruction
+- Verify live URL opens and shows actual browser session
+- Poll task status and verify status changes (started → finished)
+- Test error handling for invalid API key or insufficient credits
+- Confirm task results and output are captured
 
 ---
 
-### Task 3.2: Browser Agent Integration for Flow Execution
+### Task 3.2: Flow-to-Task Mapping & Agent Profile Configuration
 
 **Priority**: Critical  
-**Estimated Time**: 4-5 hours  
+**Estimated Time**: 3-4 hours  
 **Dependencies**: Task 3.1
 
-**Description**: Create Browser Use agents that can execute testing flows based on natural language instructions.
+**Description**: Map testing flows to Browser Use Cloud tasks with proper agent profiles and structured outputs.
 
 **Implementation**:
 
-- Create agent wrapper for Browser Use
-- Implement agent instruction processing
-- Add agent execution tracking and logging
-- Create agent-to-flow mapping system
-- Add real-time agent status updates
+```python
+# Backend: Flow execution service
+@app.post("/api/browser-cloud/execute-flow")
+async def execute_single_flow(flow: dict):
+    """Execute a single testing flow using Browser Use Cloud"""
+    try:
+        # Create or use existing agent profile
+        agent_profiles = client.agent_profiles.list()
+        if not agent_profiles.items:
+            # Create default agent profile for web testing
+            agent_profile = client.agent_profiles.create(
+                name="Web Testing Agent",
+                description="AI agent for automated web testing",
+                max_agent_steps=50,
+                vision=True,
+                thinking=True,
+                custom_system_prompt_extension="""
+You are a web testing agent. Follow the testing instructions precisely.
+For each step, describe what you're doing and what you observe.
+Report any errors, unexpected behavior, or issues you encounter.
+"""
+            )
+            profile_id = agent_profile.id
+        else:
+            profile_id = agent_profiles.items[0].id
+
+        # Create browser profile if needed (optional)
+        browser_profiles = client.browser_profiles.list()
+        browser_profile_id = browser_profiles.items[0].id if browser_profiles.items else None
+
+        # Convert flow to Browser Use Cloud task
+        task_description = f"""
+Test Website: {flow.get('target_url', 'https://example.com')}
+
+Testing Instructions:
+{flow['instructions']}
+
+Expected Result:
+{flow.get('expected_result', 'Complete the testing steps successfully')}
+
+Please execute each step carefully and report your findings.
+"""
+
+        # Define structured output schema
+        structured_output = {
+            "type": "object",
+            "properties": {
+                "test_passed": {"type": "boolean"},
+                "steps_completed": {"type": "array", "items": {"type": "string"}},
+                "issues_found": {"type": "array", "items": {"type": "string"}},
+                "final_status": {"type": "string"},
+                "execution_time": {"type": "number"},
+                "screenshots_taken": {"type": "number"}
+            },
+            "required": ["test_passed", "steps_completed", "final_status"]
+        }
+
+        # Create task with agent profile
+        task = client.tasks.create(
+            task=task_description,
+            agent_settings={
+                "llm": "gpt-4o",  # Use latest model for best performance
+                "start_url": flow.get('target_url', 'https://example.com'),
+                "profile_id": profile_id
+            },
+            browser_settings={
+                "profile_id": browser_profile_id
+            } if browser_profile_id else None,
+            structured_output_json=json.dumps(structured_output),
+            metadata={
+                "flow_id": flow.get('id'),
+                "flow_name": flow.get('name'),
+                "execution_timestamp": datetime.utcnow().isoformat()
+            }
+        )
+
+        # Get session with live URL
+        session = client.sessions.retrieve(task.session_id)
+
+        return {
+            "task_id": task.id,
+            "session_id": task.session_id,
+            "live_url": session.live_url,
+            "flow_id": flow.get('id'),
+            "status": "started",
+            "agent_profile_id": profile_id
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to execute flow: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Flow execution failed: {str(e)}")
+
+@app.get("/api/browser-cloud/flow-result/{task_id}")
+async def get_flow_result(task_id: str):
+    """Get detailed flow execution results"""
+    task = client.tasks.retrieve(task_id)
+
+    # Parse structured output if available
+    structured_result = None
+    if task.done_output:
+        try:
+            structured_result = json.loads(task.done_output)
+        except:
+            structured_result = {"raw_output": task.done_output}
+
+    return {
+        "task_id": task.id,
+        "status": task.status,
+        "is_success": task.is_success,
+        "live_url": task.session.live_url,
+        "steps": [
+            {
+                "number": step.number,
+                "goal": step.next_goal,
+                "evaluation": step.evaluation_previous_goal,
+                "url": step.url,
+                "screenshot_url": step.screenshot_url,
+                "actions": step.actions
+            } for step in task.steps
+        ],
+        "structured_result": structured_result,
+        "metadata": task.metadata,
+        "started_at": task.started_at,
+        "finished_at": task.finished_at
+    }
+```
+
+**Frontend Integration**:
+
+```typescript
+// Flow execution with live viewing
+const executeFlow = async (flow: Flow) => {
+  setExecutionStatus("starting");
+
+  try {
+    const response = await fetch("/api/browser-cloud/execute-flow", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(flow),
+    });
+
+    const result = await response.json();
+
+    // Display live browser session
+    setExecutionData((prev) => ({
+      ...prev,
+      [flow.id]: {
+        taskId: result.task_id,
+        liveUrl: result.live_url,
+        status: "running",
+      },
+    }));
+
+    // Start polling for results
+    pollFlowExecution(result.task_id, flow.id);
+  } catch (error) {
+    console.error("Flow execution failed:", error);
+    setExecutionStatus("failed");
+  }
+};
+```
 
 **Acceptance Criteria**:
 
-- [ ] Browser agents execute flows from natural language instructions
-- [ ] Agent progress tracked and logged in real-time
-- [ ] Agent actions visible on frontend
-- [ ] Agent error handling and recovery
-- [ ] Complete execution results captured
+- [ ] Flows converted to Browser Use Cloud task descriptions
+- [ ] Agent profiles created for web testing optimization
+- [ ] Structured output schema defined for consistent results
+- [ ] Task metadata includes flow tracking information
+- [ ] Live browser URLs available for each executing flow
+- [ ] Detailed step-by-step execution results captured
+- [ ] Error handling for task creation and execution failures
 
 **Testing**:
 
-- Execute single flow through browser agent
-- Verify agent follows natural language instructions
-- Test agent error scenarios and recovery
-- Check execution logging and status updates
+- Execute single flow and verify agent follows instructions
+- Check structured output parsing and result format
+- Verify live URL shows actual browser automation
+- Test different flow types (navigation, form filling, clicking)
+- Confirm agent profile optimization improves performance
+- Test error scenarios and recovery mechanisms
 
 ---
 
-### Task 3.3: Parallel Browser Session Management
-
-**Priority**: High  
-**Estimated Time**: 4-5 hours  
-**Dependencies**: Task 3.2
-
-**Description**: Implement parallel browser sessions for concurrent flow execution.
-
-**Implementation**:
-
-- Create parallel session manager using asyncio
-- Implement session pooling and resource management
-- Add concurrent flow execution capability
-- Create session monitoring and health checks
-- Implement session failure handling and isolation
-
-**Acceptance Criteria**:
-
-- [ ] Multiple browser sessions run concurrently
-- [ ] Each session isolated from others
-- [ ] Resource management prevents system overload
-- [ ] Session failures don't affect other sessions
-- [ ] Concurrent execution monitoring
-
-**Testing**:
-
-- Execute 3-5 flows in parallel
-- Verify session isolation (one failure doesn't affect others)
-- Test resource management under load
-- Monitor system performance during parallel execution
-
----
-
-### Task 3.4: Real-time Browser Session Streaming
+### Task 3.3: Parallel Flow Execution & Session Orchestration
 
 **Priority**: High  
 **Estimated Time**: 3-4 hours  
-**Dependencies**: Task 3.3
+**Dependencies**: Task 3.2
 
-**Description**: Stream browser session data and agent actions to frontend in real-time.
+**Description**: Execute multiple flows concurrently using Browser Use Cloud sessions with live monitoring and isolation.
 
 **Implementation**:
 
-- Implement browser session data streaming via WebSocket
-- Create agent action streaming (current step, progress)
-- Add browser console log streaming
-- Create session grid display on frontend
-- Implement efficient data routing for multiple sessions
+```python
+# Backend: Parallel execution orchestrator
+@app.post("/api/browser-cloud/execute-flows-parallel")
+async def execute_flows_parallel(flows: List[dict]):
+    """Execute multiple flows concurrently using Browser Use Cloud"""
+    if len(flows) > 5:
+        raise HTTPException(status_code=400, detail="Maximum 5 concurrent flows allowed")
+
+    execution_results = []
+
+    try:
+        # Create tasks concurrently (but not sessions to avoid rate limits)
+        for i, flow in enumerate(flows):
+            # Add small delay between task creations to avoid rate limiting
+            if i > 0:
+                await asyncio.sleep(0.5)
+
+            # Each flow gets its own session automatically
+            task = client.tasks.create(
+                task=f"""
+Test Website: {flow.get('target_url', 'https://example.com')}
+
+Flow #{i+1}: {flow.get('name', f'Flow {i+1}')}
+
+Testing Instructions:
+{flow['instructions']}
+
+Expected Result: {flow.get('expected_result', 'Complete testing successfully')}
+
+Execute each step carefully and report your findings.
+""",
+                agent_settings={
+                    "llm": "gpt-4o",
+                    "start_url": flow.get('target_url', 'https://example.com'),
+                    "profile_id": await get_or_create_agent_profile()
+                },
+                structured_output_json=json.dumps({
+                    "type": "object",
+                    "properties": {
+                        "test_passed": {"type": "boolean"},
+                        "steps_completed": {"type": "array", "items": {"type": "string"}},
+                        "issues_found": {"type": "array", "items": {"type": "string"}},
+                        "final_status": {"type": "string"}
+                    },
+                    "required": ["test_passed", "final_status"]
+                }),
+                metadata={
+                    "flow_id": flow.get('id'),
+                    "flow_name": flow.get('name'),
+                    "batch_execution": True,
+                    "execution_group": f"batch_{int(datetime.utcnow().timestamp())}"
+                }
+            )
+
+            # Get session details
+            session = client.sessions.retrieve(task.session_id)
+
+            execution_results.append({
+                "flow_id": flow.get('id'),
+                "flow_name": flow.get('name'),
+                "task_id": task.id,
+                "session_id": task.session_id,
+                "live_url": session.live_url,
+                "status": "started",
+                "start_time": datetime.utcnow().isoformat()
+            })
+
+        return {
+            "batch_id": f"batch_{int(datetime.utcnow().timestamp())}",
+            "total_flows": len(flows),
+            "executions": execution_results,
+            "status": "started"
+        }
+
+    except Exception as e:
+        logger.error(f"Parallel execution failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Parallel execution failed: {str(e)}")
+
+@app.get("/api/browser-cloud/batch-status/{batch_id}")
+async def get_batch_status(batch_id: str):
+    """Get status of all flows in a batch execution"""
+    # Get all tasks with matching batch metadata
+    sessions = client.sessions.list(page_size=50)
+    batch_sessions = []
+
+    for session in sessions.items:
+        # Get tasks for this session
+        session_details = client.sessions.retrieve(session.id)
+        if session_details.tasks:
+            for task in session_details.tasks:
+                if (task.metadata.get('execution_group') == batch_id or
+                    task.metadata.get('batch_execution')):
+                    batch_sessions.append({
+                        "flow_id": task.metadata.get('flow_id'),
+                        "flow_name": task.metadata.get('flow_name'),
+                        "task_id": task.id,
+                        "session_id": session.id,
+                        "live_url": session.live_url,
+                        "status": task.status,
+                        "is_success": task.is_success,
+                        "started_at": task.started_at,
+                        "finished_at": task.finished_at
+                    })
+
+    # Calculate overall batch status
+    total_tasks = len(batch_sessions)
+    completed_tasks = len([t for t in batch_sessions if t['status'] in ['finished', 'stopped']])
+    failed_tasks = len([t for t in batch_sessions if t['status'] == 'stopped' and not t['is_success']])
+
+    overall_status = "running"
+    if completed_tasks == total_tasks:
+        overall_status = "completed"
+    elif failed_tasks > 0 and completed_tasks == total_tasks:
+        overall_status = "completed_with_failures"
+
+    return {
+        "batch_id": batch_id,
+        "overall_status": overall_status,
+        "total_flows": total_tasks,
+        "completed": completed_tasks,
+        "failed": failed_tasks,
+        "running": total_tasks - completed_tasks,
+        "executions": batch_sessions
+    }
+
+async def get_or_create_agent_profile():
+    """Get existing or create new agent profile for web testing"""
+    profiles = client.agent_profiles.list()
+
+    # Look for existing web testing profile
+    for profile in profiles.items:
+        if "testing" in profile.name.lower():
+            return profile.id
+
+    # Create new profile if none exists
+    profile = client.agent_profiles.create(
+        name="Web Testing Agent",
+        description="Optimized for automated web testing",
+        max_agent_steps=50,
+        vision=True,
+        thinking=True,
+        custom_system_prompt_extension="""
+You are a professional web testing agent. Execute testing steps methodically:
+1. Navigate carefully to required pages
+2. Wait for elements to load before interacting
+3. Verify each action was successful
+4. Report any errors or unexpected behavior clearly
+5. Take screenshots of important steps
+"""
+    )
+    return profile.id
+```
+
+**Frontend Integration**:
+
+```typescript
+// Parallel execution with live monitoring
+const executeFlowsParallel = async (approvedFlows: Flow[]) => {
+  setParallelExecution({ status: 'starting', flows: [] });
+
+  try {
+    const response = await fetch('/api/browser-cloud/execute-flows-parallel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(approvedFlows)
+    });
+
+    const batchResult = await response.json();
+
+    // Set up live monitoring for all flows
+    setParallelExecution({
+      batchId: batchResult.batch_id,
+      status: 'running',
+      flows: batchResult.executions.map(exec => ({
+        ...exec,
+        liveUrl: exec.live_url
+      }))
+    });
+
+    // Start polling batch status
+    pollBatchStatus(batchResult.batch_id);
+
+  } catch (error) {
+    console.error('Parallel execution failed:', error);
+    setParallelExecution({ status: 'failed', flows: [] });
+  }
+};
+
+const LiveSessionGrid = ({ flows }: { flows: any[] }) => {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {flows.map((flow, index) => (
+        <div key={flow.task_id} className="border rounded-lg p-4">
+          <h3 className="font-semibold mb-2">{flow.flow_name}</h3>
+          <div className="mb-2">
+            <span className={`px-2 py-1 rounded text-xs ${
+              flow.status === 'finished' ? 'bg-green-100 text-green-800' :
+              flow.status === 'running' ? 'bg-blue-100 text-blue-800' :
+              'bg-gray-100 text-gray-800'
+            }`}>
+              {flow.status}
+            </span>
+          </div>
+          {flow.liveUrl && (
+            <iframe
+              src={flow.liveUrl}
+              className="w-full h-48 border rounded"
+              title={`Live session for ${flow.flow_name}`}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+```
 
 **Acceptance Criteria**:
 
-- [ ] Real-time agent actions streamed to frontend
-- [ ] Browser console logs visible on frontend
-- [ ] Current execution step displayed for each session
-- [ ] Session grid shows all concurrent sessions
-- [ ] Efficient data streaming without frontend lag
+- [ ] Execute up to 5 flows concurrently without rate limiting
+- [ ] Each flow runs in isolated Browser Use Cloud session
+- [ ] Independent live URLs provided for each concurrent session
+- [ ] Batch status tracking for overall execution progress
+- [ ] Session failures isolated (don't affect other sessions)
+- [ ] Resource management with API rate limit handling
+- [ ] Live session grid displays all concurrent browsers
 
 **Testing**:
 
-- Run parallel sessions, verify real-time updates
-- Check console log streaming accuracy
-- Test with multiple concurrent streams
-- Verify frontend performance with live data
+- Execute 3-5 flows simultaneously and verify isolation
+- Check live URLs work independently for each session
+- Verify batch status tracking and completion detection
+- Test failure scenarios (one session fails, others continue)
+- Monitor API usage and confirm no rate limiting issues
+- Test frontend grid display with multiple live sessions
+
+---
+
+### Task 3.4: Live Browser Session Display & Real-time Status Updates
+
+**Priority**: High  
+**Estimated Time**: 2-3 hours  
+**Dependencies**: Task 3.3
+
+**Description**: Create responsive live browser session display with real-time status updates using Browser Use Cloud live URLs.
+
+**Implementation**:
+
+```typescript
+// Frontend: Live session monitoring component
+interface LiveSessionData {
+  taskId: string;
+  sessionId: string;
+  flowName: string;
+  liveUrl: string;
+  status: 'started' | 'paused' | 'finished' | 'stopped';
+  isSuccess?: boolean;
+  currentStep?: number;
+  totalSteps?: number;
+  startedAt: string;
+  finishedAt?: string;
+}
+
+const LiveSessionMonitor = ({ batchId }: { batchId: string }) => {
+  const [sessions, setSessions] = useState<LiveSessionData[]>([]);
+  const [batchStatus, setBatchStatus] = useState<any>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Poll batch status every 3 seconds
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        setRefreshing(true);
+        const response = await fetch(`/api/browser-cloud/batch-status/${batchId}`);
+        const status = await response.json();
+
+        setBatchStatus(status);
+        setSessions(status.executions);
+
+        // Stop polling if all sessions completed
+        if (status.overall_status === 'completed' ||
+            status.overall_status === 'completed_with_failures') {
+          clearInterval(interval);
+        }
+      } catch (error) {
+        console.error('Failed to fetch batch status:', error);
+      } finally {
+        setRefreshing(false);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [batchId]);
+
+  return (
+    <div className="space-y-6">
+      {/* Batch Overview */}
+      {batchStatus && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Execution Progress</h2>
+            {refreshing && (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-4 gap-4 mb-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{batchStatus.total_flows}</div>
+              <div className="text-sm text-gray-600">Total Flows</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-yellow-600">{batchStatus.running}</div>
+              <div className="text-sm text-gray-600">Running</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{batchStatus.completed}</div>
+              <div className="text-sm text-gray-600">Completed</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">{batchStatus.failed}</div>
+              <div className="text-sm text-gray-600">Failed</div>
+            </div>
+          </div>
+
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style={{
+                width: `${(batchStatus.completed / batchStatus.total_flows) * 100}%`
+              }}
+            ></div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Sessions Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {sessions.map((session) => (
+          <LiveSessionCard key={session.taskId} session={session} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const LiveSessionCard = ({ session }: { session: LiveSessionData }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [details, setDetails] = useState<any>(null);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'finished': return 'bg-green-100 text-green-800';
+      case 'started': return 'bg-blue-100 text-blue-800';
+      case 'paused': return 'bg-yellow-100 text-yellow-800';
+      case 'stopped': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const loadDetails = async () => {
+    try {
+      const response = await fetch(`/api/browser-cloud/flow-result/${session.taskId}`);
+      const data = await response.json();
+      setDetails(data);
+    } catch (error) {
+      console.error('Failed to load session details:', error);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      {/* Session Header */}
+      <div className="p-4 border-b">
+        <div className="flex justify-between items-start mb-2">
+          <h3 className="font-semibold text-lg truncate">{session.flowName}</h3>
+          <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(session.status)}`}>
+            {session.status}
+          </span>
+        </div>
+
+        <div className="text-sm text-gray-600">
+          Started: {new Date(session.startedAt).toLocaleTimeString()}
+          {session.finishedAt && (
+            <div>Finished: {new Date(session.finishedAt).toLocaleTimeString()}</div>
+          )}
+        </div>
+
+        {session.isSuccess !== undefined && (
+          <div className={`mt-2 text-sm font-medium ${
+            session.isSuccess ? 'text-green-600' : 'text-red-600'
+          }`}>
+            {session.isSuccess ? '✅ Success' : '❌ Failed'}
+          </div>
+        )}
+      </div>
+
+      {/* Live Browser View */}
+      {session.liveUrl && (
+        <div className="relative">
+          <iframe
+            src={session.liveUrl}
+            className="w-full h-64 border-0"
+            title={`Live browser for ${session.flowName}`}
+            allow="fullscreen"
+          />
+          <div className="absolute top-2 right-2">
+            <a
+              href={session.liveUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs hover:bg-opacity-70"
+            >
+              Open Full
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* Session Actions */}
+      <div className="p-4 bg-gray-50">
+        <div className="flex justify-between items-center">
+          <button
+            onClick={() => {
+              setExpanded(!expanded);
+              if (!expanded && !details) loadDetails();
+            }}
+            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+          >
+            {expanded ? 'Hide Details' : 'Show Details'}
+          </button>
+
+          <div className="flex space-x-2">
+            <button className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700">
+              Logs
+            </button>
+            <button className="px-3 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700">
+              Download
+            </button>
+          </div>
+        </div>
+
+        {/* Expanded Details */}
+        {expanded && details && (
+          <div className="mt-4 pt-4 border-t">
+            <div className="space-y-2 text-sm">
+              <div><strong>Steps Completed:</strong> {details.steps?.length || 0}</div>
+              {details.structured_result && (
+                <div>
+                  <strong>Test Result:</strong>
+                  <pre className="mt-1 p-2 bg-gray-100 rounded text-xs overflow-auto">
+                    {JSON.stringify(details.structured_result, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+```
+
+**Backend Support**:
+
+```python
+# Additional endpoints for session management
+@app.get("/api/browser-cloud/session-logs/{task_id}")
+async def get_session_logs(task_id: str):
+    """Get downloadable logs for a task"""
+    try:
+        logs_response = client.tasks.get_logs(task_id)
+        return {"download_url": logs_response.download_url}
+    except Exception as e:
+        raise HTTPException(status_code=404, detail="Logs not found")
+
+@app.post("/api/browser-cloud/create-share/{session_id}")
+async def create_session_share(session_id: str):
+    """Create public share for session"""
+    try:
+        share = client.sessions.public_share.create(session_id)
+        return {
+            "share_url": share.share_url,
+            "share_token": share.share_token
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to create share")
+```
+
+**Acceptance Criteria**:
+
+- [ ] Responsive grid layout displays live browser sessions
+- [ ] Real-time status polling every 3 seconds with visual indicators
+- [ ] Individual session cards show live browser iframes
+- [ ] Batch progress overview with completion statistics
+- [ ] Session detail expansion with step-by-step results
+- [ ] Full-screen live browser viewing options
+- [ ] Session logs and download functionality
+- [ ] Smooth polling without UI performance issues
+
+**Testing**:
+
+- Display 3-5 concurrent live browser sessions in grid
+- Verify real-time status updates and progress indicators
+- Test responsive layout on different screen sizes
+- Confirm iframe live browser sessions work correctly
+- Test session detail expansion and result parsing
+- Verify batch progress tracking accuracy
+- Check performance with multiple concurrent iframe embeddings
 
 ---
 
@@ -573,18 +1263,191 @@ Before completing each task:
 
 ## Development Notes
 
-### Browser Use Integration
+### Browser Use Cloud Integration
 
-Based on the project summary sample code:
+**UPDATED APPROACH**: Using Browser Use Cloud API instead of local Browser Use library.
+
+**Key Benefits**:
+
+- ✅ No local browser management or resources needed
+- ✅ Live session URLs provided for real-time viewing
+- ✅ Cloud-hosted parallel browser sessions
+- ✅ Built-in session recording and screenshots
+- ✅ Automatic session management and cleanup
+
+**Core API Integration Using Official SDK**:
 
 ```python
-# Parallel browser sessions with Browser Use
-agents = [
-    Agent(task=task, llm=llm, browser=browser)
-    for task in flows
-]
-await asyncio.gather(*[agent.run() for agent in agents])
+# Browser Use Cloud Integration (Updated)
+from browser_use_sdk import BrowserUse
+import asyncio
+from datetime import datetime
+
+# Initialize Browser Use client
+client = BrowserUse(
+    api_key=os.getenv("BROWSER_USE_API_KEY"),
+)
+
+# Create optimized agent profile for web testing
+async def setup_testing_environment():
+    """Set up agent and browser profiles for web testing"""
+    # Create specialized agent profile
+    agent_profile = client.agent_profiles.create(
+        name="Web Testing Specialist",
+        description="AI agent optimized for automated web testing and validation",
+        max_agent_steps=50,
+        vision=True,
+        thinking=True,
+        custom_system_prompt_extension="""
+You are a professional web testing agent with expertise in:
+- Automated web testing and validation
+- Form filling and interaction testing
+- Navigation and UI element verification
+- Error detection and reporting
+- Screenshot capture for documentation
+
+Execute each test step methodically and report findings clearly.
+"""
+    )
+
+    # Create browser profile for consistent testing environment
+    browser_profile = client.browser_profiles.create(
+        name="Testing Browser",
+        description="Optimized browser settings for web testing",
+        browser_viewport_width=1280,
+        browser_viewport_height=960,
+        ad_blocker=True,
+        store_cache=False,  # Fresh environment for each test
+        is_mobile=False
+    )
+
+    return agent_profile.id, browser_profile.id
+
+# Execute flows with Browser Use Cloud
+async def execute_flows_with_cloud(flows, agent_profile_id, browser_profile_id):
+    """Execute multiple flows using Browser Use Cloud with live URLs"""
+    execution_results = []
+
+    for flow in flows:
+        try:
+            # Create task with optimized settings
+            task = client.tasks.create(
+                task=f"""
+Test Target: {flow.get('target_url', 'https://example.com')}
+
+Test Name: {flow.get('name', 'Web Test')}
+
+Instructions:
+{flow['instructions']}
+
+Expected Outcome: {flow.get('expected_result', 'Complete test successfully')}
+
+Please execute each step carefully, take screenshots of key actions,
+and report any issues or unexpected behavior.
+""",
+                agent_settings={
+                    "llm": "gpt-4o",  # Latest model for best performance
+                    "start_url": flow.get('target_url'),
+                    "profile_id": agent_profile_id
+                },
+                browser_settings={
+                    "profile_id": browser_profile_id
+                },
+                structured_output_json=json.dumps({
+                    "type": "object",
+                    "properties": {
+                        "test_passed": {"type": "boolean"},
+                        "steps_completed": {"type": "array", "items": {"type": "string"}},
+                        "issues_found": {"type": "array", "items": {"type": "string"}},
+                        "final_status": {"type": "string"},
+                        "recommendations": {"type": "array", "items": {"type": "string"}}
+                    },
+                    "required": ["test_passed", "final_status"]
+                }),
+                metadata={
+                    "flow_id": flow.get('id'),
+                    "flow_name": flow.get('name'),
+                    "test_type": "automated_web_testing",
+                    "execution_timestamp": datetime.utcnow().isoformat()
+                }
+            )
+
+            # Get session with live URL
+            session = client.sessions.retrieve(task.session_id)
+
+            execution_results.append({
+                "flow_id": flow.get('id'),
+                "task_id": task.id,
+                "session_id": task.session_id,
+                "live_url": session.live_url,  # Critical: Live browser viewing
+                "status": "started",
+                "created_at": datetime.utcnow()
+            })
+
+            # Small delay to avoid rate limiting
+            await asyncio.sleep(0.5)
+
+        except Exception as e:
+            logger.error(f"Failed to create task for flow {flow.get('id')}: {str(e)}")
+            execution_results.append({
+                "flow_id": flow.get('id'),
+                "error": str(e),
+                "status": "failed"
+            })
+
+    return execution_results
+
+# Monitor execution progress
+async def monitor_execution_progress(task_ids):
+    """Monitor multiple tasks and return comprehensive status"""
+    results = []
+
+    for task_id in task_ids:
+        try:
+            task = client.tasks.retrieve(task_id)
+            results.append({
+                "task_id": task.id,
+                "status": task.status,
+                "is_success": task.is_success,
+                "live_url": task.session.live_url,
+                "steps_count": len(task.steps),
+                "structured_output": task.done_output,
+                "execution_time": (
+                    task.finished_at - task.started_at
+                    if task.finished_at else None
+                )
+            })
+        except Exception as e:
+            results.append({
+                "task_id": task_id,
+                "error": str(e),
+                "status": "error"
+            })
+
+    return results
 ```
+
+**Key Advantages of Browser Use Cloud Integration**:
+
+- ✅ **Live Session URLs**: Each task provides `session.live_url` for real-time browser viewing
+- ✅ **No Local Infrastructure**: Zero browser management, resources, or dependencies
+- ✅ **Built-in Parallel Execution**: Each task gets isolated cloud browser session
+- ✅ **Professional Agent Profiles**: Optimized AI agents for web testing scenarios
+- ✅ **Structured Results**: JSON output schemas for consistent test reporting
+- ✅ **Automatic Screenshots**: Built-in step recording and visual documentation
+- ✅ **Session Sharing**: Public share URLs for collaboration and review
+
+**Integration Benefits vs. Local Browser Use**:
+
+| Feature               | Browser Use Cloud | Local Browser Use       |
+| --------------------- | ----------------- | ----------------------- |
+| Infrastructure        | ☁️ Zero setup     | 🔧 Complex setup        |
+| Live Viewing          | ✅ Built-in URLs  | ❌ Custom streaming     |
+| Parallel Execution    | ✅ Cloud native   | 🔧 Resource limited     |
+| Session Recording     | ✅ Automatic      | 🔧 Manual setup         |
+| Agent Optimization    | ✅ Cloud profiles | 🔧 Local config         |
+| Sharing/Collaboration | ✅ Public URLs    | ❌ Not available        |
+| Cost                  | 💰 Pay-per-use    | 🔧 Infrastructure costs |
 
 ### WebSocket Message Structure
 
@@ -628,12 +1491,12 @@ This task structure ensures rapid MVP development with continuous testing and va
 - [ ] **Task 2.2**: Flow Editing & Management Interface
 - [ ] **Task 2.3**: Flow Approval & Execution Preparation
 
-### Phase 3: Browser Use Integration & Parallel Sessions
+### Phase 3: Browser Use Cloud Integration & Parallel Sessions
 
-- [ ] **Task 3.1**: Browser Use Library Setup & Single Session Test
-- [ ] **Task 3.2**: Browser Agent Integration for Flow Execution
-- [ ] **Task 3.3**: Parallel Browser Session Management
-- [ ] **Task 3.4**: Real-time Browser Session Streaming
+- [ ] **Task 3.1**: Browser Use Cloud API Integration & Single Session Test ⭐ **UPDATED**
+- [ ] **Task 3.2**: Browser Cloud Agent Integration for Flow Execution ⭐ **UPDATED**
+- [ ] **Task 3.3**: Parallel Cloud Browser Session Management ⭐ **UPDATED**
+- [ ] **Task 3.4**: Live Browser Session Display & Real-time Status Updates ⭐ **UPDATED**
 
 ### Phase 4: Results & User Experience
 

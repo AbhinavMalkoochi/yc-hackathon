@@ -9,9 +9,12 @@ import json
 import asyncio
 from datetime import datetime
 from typing import Dict, Any, List, Optional
+from fastapi import HTTPException
 import os
 from dotenv import load_dotenv
 from google import genai
+from browser_service import browser_manager, test_browser_basic_functionality
+from browser_use_sdk import BrowserUse
 
 # Load environment variables from .env file
 load_dotenv()
@@ -44,6 +47,21 @@ if GEMINI_API_KEY:
 else:
     logger.warning("GEMINI_API_KEY not provided, LLM features will be disabled")
     logger.info("To set up Gemini: Set GEMINI_API_KEY environment variable")
+
+# Browser Use Cloud client setup
+BROWSER_USE_API_KEY = os.getenv("BROWSER_USE_API_KEY", "")
+browser_use_client = None
+if BROWSER_USE_API_KEY:
+    try:
+        from browser_use_sdk import BrowserUse
+        browser_use_client = BrowserUse(api_key=BROWSER_USE_API_KEY)
+        logger.info("Browser Use Cloud client initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize Browser Use Cloud client: {e}")
+        browser_use_client = None
+else:
+    logger.warning("BROWSER_USE_API_KEY not provided, Browser Use Cloud features will be disabled")
+    logger.info("To set up Browser Use Cloud: Set BROWSER_USE_API_KEY environment variable")
 
 # Logging middleware
 @app.middleware("http")
@@ -475,6 +493,341 @@ async def get_stats():
         "timestamp": datetime.now().isoformat(),
         "data": stats
     }
+
+# ==================== BROWSER USE ENDPOINTS ====================
+
+class BrowserSessionRequest(BaseModel):
+    session_id: str
+    headless: bool = True
+
+class BrowserNavigateRequest(BaseModel):
+    session_id: str
+    url: str
+
+class BrowserClickRequest(BaseModel):
+    session_id: str
+    selector: str
+
+class BrowserTypeRequest(BaseModel):
+    session_id: str
+    selector: str
+    text: str
+
+# Browser Use Cloud request models
+class BrowserCloudTaskRequest(BaseModel):
+    task: str
+    start_url: Optional[str] = "https://example.com"
+    metadata: Optional[Dict[str, Any]] = None
+
+class BrowserCloudTaskResponse(BaseModel):
+    task_id: str
+    session_id: str
+    live_url: Optional[str] = None
+    status: str
+
+# Browser Use Cloud endpoints
+@app.post("/api/browser-cloud/create-task", response_model=BrowserCloudTaskResponse)
+async def create_browser_cloud_task(request: BrowserCloudTaskRequest):
+    """Create a single browser task using Browser Use Cloud API"""
+    logger.info(f"Creating Browser Use Cloud task: {request.task[:100]}...")
+    
+    if not BROWSER_USE_API_KEY:
+        raise HTTPException(
+            status_code=503, 
+            detail="Browser Use Cloud API key not configured. Please check BROWSER_USE_API_KEY."
+        )
+    
+    try:
+        # Use direct API call to Browser Use Cloud
+        import requests
+        
+        api_url = "https://api.browser-use.com/api/v1/run-task"
+        headers = {
+            "Authorization": f"Bearer {BROWSER_USE_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {"task": request.task}
+        
+        response = requests.post(api_url, headers=headers, json=payload)
+        response.raise_for_status()
+        
+        task_data = response.json()
+        task_id = task_data["id"]
+        
+        logger.info(f"Browser Use Cloud task created: {task_id}")
+        
+        # Browser Use Cloud doesn't return live_url in creation response
+        # You need to get task details to retrieve it
+        live_url = None
+        session_id = task_id
+        
+        return BrowserCloudTaskResponse(
+            task_id=task_id,
+            session_id=session_id,
+            live_url=live_url,
+            status="started"
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to create Browser Use Cloud task: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Task creation failed: {str(e)}")
+
+@app.get("/api/browser-cloud/task/{task_id}")
+async def get_browser_cloud_task_status(task_id: str):
+    """Get task status and details from Browser Use Cloud"""
+    logger.info(f"Getting Browser Use Cloud task status: {task_id}")
+    
+    if not BROWSER_USE_API_KEY:
+        raise HTTPException(
+            status_code=503, 
+            detail="Browser Use Cloud API key not configured. Please check BROWSER_USE_API_KEY."
+        )
+    
+    try:
+        import requests
+        
+        # Get task details using direct API call
+        api_url = f"https://api.browser-use.com/api/v1/task/{task_id}"
+        headers = {
+            "Authorization": f"Bearer {BROWSER_USE_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        response = requests.get(api_url, headers=headers)
+        response.raise_for_status()
+        
+        task_data = response.json()
+        
+        return {
+            "task_id": task_id,
+            "session_id": task_data.get("session_id", task_id),
+            "status": task_data.get("status", "unknown"),
+            "is_success": task_data.get("is_success"),
+            "live_url": task_data.get("live_url"),
+            "started_at": task_data.get("started_at"),
+            "finished_at": task_data.get("finished_at"),
+            "steps_count": len(task_data.get("steps", [])),
+            "done_output": task_data.get("output"),
+            "steps": task_data.get("steps", [])
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get Browser Use Cloud task status: {str(e)}")
+        raise HTTPException(status_code=404, detail=f"Task not found or error: {str(e)}")
+
+@app.post("/api/browser/test")
+async def test_browser_functionality():
+    """Test basic browser functionality for Task 3.1"""
+    logger.info("Browser functionality test endpoint accessed")
+    
+    try:
+        result = await test_browser_basic_functionality()
+        logger.info(f"Browser test completed: {result['status']}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Browser test failed: {e}")
+        return {
+            "test": "basic_browser_functionality",
+            "status": "error", 
+            "error": str(e),
+            "browser_use_available": False
+        }
+
+@app.post("/api/browser/session/create")
+async def create_browser_session(request: BrowserSessionRequest):
+    """Create a new browser session"""
+    logger.info(f"Creating browser session: {request.session_id}")
+    
+    try:
+        result = await browser_manager.create_session(
+            session_id=request.session_id,
+            headless=request.headless
+        )
+        logger.info(f"Browser session created successfully: {request.session_id}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Failed to create browser session: {e}")
+        return {
+            "session_id": request.session_id,
+            "status": "error",
+            "error": str(e)
+        }
+
+@app.post("/api/browser/session/navigate")
+async def navigate_browser(request: BrowserNavigateRequest):
+    """Navigate browser to a URL"""
+    logger.info(f"Navigating browser session {request.session_id} to {request.url}")
+    
+    try:
+        result = await browser_manager.navigate_to_url(
+            session_id=request.session_id,
+            url=request.url
+        )
+        logger.info(f"Navigation successful: {request.session_id}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Navigation failed: {e}")
+        return {
+            "session_id": request.session_id,
+            "action": "navigate",
+            "status": "error",
+            "error": str(e)
+        }
+
+@app.post("/api/browser/session/click")
+async def click_element(request: BrowserClickRequest):
+    """Click an element in the browser"""
+    logger.info(f"Clicking element in session {request.session_id}: {request.selector}")
+    
+    try:
+        result = await browser_manager.click_element(
+            session_id=request.session_id,
+            selector=request.selector
+        )
+        logger.info(f"Click successful: {request.session_id}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Click failed: {e}")
+        return {
+            "session_id": request.session_id,
+            "action": "click",
+            "status": "error",
+            "error": str(e)
+        }
+
+@app.post("/api/browser/session/type")
+async def type_text(request: BrowserTypeRequest):
+    """Type text into an element"""
+    logger.info(f"Typing text in session {request.session_id}: {request.selector}")
+    
+    try:
+        result = await browser_manager.type_text(
+            session_id=request.session_id,
+            selector=request.selector,
+            text=request.text
+        )
+        logger.info(f"Type successful: {request.session_id}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Type failed: {e}")
+        return {
+            "session_id": request.session_id,
+            "action": "type",
+            "status": "error",
+            "error": str(e)
+        }
+
+@app.get("/api/browser/session/{session_id}/info")
+async def get_page_info(session_id: str):
+    """Get information about the current page"""
+    logger.info(f"Getting page info for session: {session_id}")
+    
+    try:
+        result = await browser_manager.get_page_info(session_id)
+        logger.info(f"Page info retrieved: {session_id}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Get page info failed: {e}")
+        return {
+            "session_id": session_id,
+            "action": "get_page_info",
+            "status": "error",
+            "error": str(e)
+        }
+
+@app.get("/api/browser/session/{session_id}/status")
+async def get_session_status(session_id: str):
+    """Get status of a browser session"""
+    logger.info(f"Getting status for session: {session_id}")
+    
+    try:
+        result = browser_manager.get_session_status(session_id)
+        logger.info(f"Session status retrieved: {session_id}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Get session status failed: {e}")
+        return {
+            "session_id": session_id,
+            "status": "error",
+            "error": str(e)
+        }
+
+@app.get("/api/browser/session/{session_id}/logs")
+async def get_session_logs(session_id: str):
+    """Get logs for a browser session"""
+    logger.info(f"Getting logs for session: {session_id}")
+    
+    try:
+        logs = browser_manager.get_session_logs(session_id)
+        logger.info(f"Session logs retrieved: {session_id} ({len(logs)} entries)")
+        return {
+            "session_id": session_id,
+            "status": "success",
+            "logs": logs,
+            "total_logs": len(logs)
+        }
+        
+    except Exception as e:
+        logger.error(f"Get session logs failed: {e}")
+        return {
+            "session_id": session_id,
+            "status": "error",
+            "error": str(e)
+        }
+
+@app.delete("/api/browser/session/{session_id}")
+async def close_browser_session(session_id: str):
+    """Close and cleanup a browser session"""
+    logger.info(f"Closing browser session: {session_id}")
+    
+    try:
+        result = await browser_manager.close_session(session_id)
+        logger.info(f"Browser session closed: {session_id}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Failed to close browser session: {e}")
+        return {
+            "session_id": session_id,
+            "status": "error",
+            "error": str(e)
+        }
+
+@app.get("/api/browser/sessions")
+async def list_active_sessions():
+    """List all active browser sessions"""
+    logger.info("Listing active browser sessions")
+    
+    try:
+        sessions = browser_manager.get_active_sessions()
+        session_details = []
+        
+        for session_id in sessions:
+            status = browser_manager.get_session_status(session_id)
+            session_details.append(status)
+        
+        logger.info(f"Active sessions listed: {len(sessions)} sessions")
+        return {
+            "status": "success",
+            "active_sessions": sessions,
+            "session_details": session_details,
+            "total_sessions": len(sessions)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to list active sessions: {e}")
+        return {
+            "status": "error",
+            "error": str(e)
+        }
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

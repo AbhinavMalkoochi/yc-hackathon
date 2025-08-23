@@ -1,6 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, FC, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ArrowUp, Check, Edit3, Globe, KeyRound, Trash2, Type,
+  Bot, BarChart3, Feather, Share2, Play, Clock, CheckCircle2, AlertCircle
+} from 'lucide-react';
 import { generateFlows } from "../lib/api";
 
 interface TestFlow {
@@ -19,7 +24,30 @@ interface GenerationResponse {
   generation_time?: number;
 }
 
-export default function Home() {
+// --- FLOW ICONS ---
+const flowIcons = {
+  'Navigation Test': <Globe size={20} />,
+  'Form Testing': <Edit3 size={20} />,
+  'Button Clicking': <Bot size={20} />,
+  'Data Extraction': <BarChart3 size={20} />,
+  'Content Verification': <Feather size={20} />,
+  'User Flow': <Share2 size={20} />,
+  'Login Test': <KeyRound size={20} />,
+  'Search Test': <Type size={20} />
+};
+
+const getFlowIcon = (flowName: string) => {
+  // Try to match flow name with predefined icons
+  for (const [key, icon] of Object.entries(flowIcons)) {
+    if (flowName.toLowerCase().includes(key.toLowerCase().split(' ')[0])) {
+      return icon;
+    }
+  }
+  // Default icon
+  return <Bot size={20} />;
+};
+
+const HomePage: FC = () => {
   const [prompt, setPrompt] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [flows, setFlows] = useState<TestFlow[]>([]);
@@ -31,12 +59,20 @@ export default function Home() {
     timestamp: Date;
   }>>([]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // --- MEMOIZED VALUES ---
+  const approvedFlows = useMemo(() => flows.filter(f => f.status === 'approved'), [flows]);
+  const selectedFlows = useMemo(() => flows.filter(f => f.approved).map(f => flows.indexOf(f)), [flows]);
+  const hasSelection = useMemo(() => selectedFlows.length > 0, [selectedFlows]);
+  const showFlows = useMemo(() => flows.length > 0, [flows]);
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim() || loading) return;
 
     const userMessage = prompt.trim();
     const currentWebsiteUrl = websiteUrl.trim();
+
+    if (!currentWebsiteUrl) return; // Require both prompt and URL
 
     // Add user message to conversation
     setConversationHistory(prev => [...prev, {
@@ -49,10 +85,10 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const response = await generateFlows(userMessage, currentWebsiteUrl || undefined, 5) as GenerationResponse;
+      const response = await generateFlows(userMessage, currentWebsiteUrl) as GenerationResponse;
 
       if (response.status === "success") {
-        const flowsWithDefaults = response.flows.map((flow) => ({
+        const flowsWithDefaults = response.flows.map((flow: TestFlow) => ({
           ...flow,
           approved: false,
           status: 'pending' as const,
@@ -103,274 +139,237 @@ export default function Home() {
     setFlows(newFlows);
   };
 
+  // --- NEW FLOW ACTION HANDLERS ---
+  const handleFlowAction = (index: number, newStatus: 'approved' | 'declined') => {
+    const newFlows = [...flows];
+    if (newStatus === 'approved') {
+      newFlows[index].approved = true;
+      newFlows[index].status = 'approved';
+    } else {
+      newFlows[index].approved = false;
+      newFlows[index].status = 'pending';
+    }
+    setFlows(newFlows);
+  };
+
+  const handleSelectFlow = (index: number) => {
+    toggleFlowApproval(index);
+  };
+
+  const handleRunProcess = () => {
+    const approvedFlowsList = flows.filter(flow => flow.approved);
+    console.log("Running process for selected flows:", approvedFlowsList);
+    alert(`Running ${approvedFlowsList.length} flows!`);
+
+    // Here you would call your existing execution logic
+    // For now, just simulate the process
+    const newFlows = flows.map(flow =>
+      flow.approved ? { ...flow, status: 'executing' as const } : flow
+    );
+    setFlows(newFlows);
+  };
+
   const getApprovedFlows = () => flows.filter(flow => flow.approved);
 
+  // --- ANIMATION VARIANTS ---
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1, delayChildren: 0.2 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { y: 0, opacity: 1, transition: { type: 'spring' as const, stiffness: 100 } }
+  };
+
+  // --- RENDER ---
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 flex flex-col relative overflow-hidden">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '4s' }}></div>
+    <div className="relative flex flex-col items-center w-full min-h-screen p-4 pt-24 overflow-y-auto font-sans text-gray-800 bg-[#F7F2ED]">
+      {/* Background Elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
+        <div className="absolute -top-1/4 -left-1/4 w-1/2 h-1/2 bg-rose-200/30 rounded-full filter blur-3xl animate-blob"></div>
+        <div className="absolute bottom-0 right-0 w-2/3 h-2/3 bg-blue-200/30 rounded-full filter blur-3xl animate-blob animation-delay-4000"></div>
       </div>
 
       {/* Header */}
-      <header className="relative z-10 backdrop-blur-sm bg-white/10 border-b border-white/20 px-6 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-lg">🤖</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-white">
-                Browser Test Agent
-              </h1>
-              <p className="text-white/70 text-sm">AI-powered testing automation</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            {flows.length > 0 && (
-              <div className="bg-white/10 backdrop-blur-sm rounded-full px-3 py-1 border border-white/20">
-                <span className="text-white/90 text-sm font-medium">
-                  {getApprovedFlows().length}/{flows.length} approved
-                </span>
-              </div>
-            )}
+      <header className="absolute top-0 left-0 w-full p-8 z-20">
+        <div className="flex justify-between items-center">
+          <h1 className="text-xl font-semibold text-gray-700 tracking-tighter">qaesar</h1>
+          <div className="flex gap-4">
             <a
-              href="/flow-generation-test"
-              className="text-white/60 hover:text-white transition-colors text-sm flex items-center gap-1 hover:bg-white/10 px-3 py-2 rounded-lg"
-              title="Advanced Testing Interface"
+              href="/browser-test"
+              className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
             >
-              <span>⚙️</span>
-              <span>Advanced</span>
+              Browser Test
+            </a>
+            <a
+              href="/convex-test"
+              className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              All Tests
             </a>
           </div>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-hidden flex flex-col relative z-10">
-        {/* Conversation Area */}
-        <div className="flex-1 overflow-y-auto px-6 py-8">
-          <div className="max-w-4xl mx-auto space-y-8">
-
-            {/* Welcome Message */}
-            {conversationHistory.length === 0 && (
-              <div className="text-center py-16 animate-fade-in">
-                <div className="w-20 h-20 bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl animate-float">
-                  <span className="text-white font-bold text-2xl">🚀</span>
-                </div>
-                <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-transparent">
-                  Test something Amazing
-                </h2>
-                <p className="text-white/80 mb-12 max-w-2xl mx-auto text-lg leading-relaxed">
-                  Describe what you want to test on your website, and I'll generate intelligent browser automation flows.
-                  Review, customize, and execute them with a single click.
-                </p>
-
-                {/* Example Prompts */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-                  <button
-                    onClick={() => setPrompt("Test the login functionality on my e-commerce website")}
-                    className="group p-6 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl hover:bg-white/20 transition-all duration-300 text-left hover:scale-105 hover:shadow-xl"
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-lg flex items-center justify-center">
-                        <span className="text-white text-sm">🔐</span>
-                      </div>
-                      <div className="font-semibold text-white group-hover:text-blue-200 transition-colors">Login Testing</div>
-                    </div>
-                    <div className="text-sm text-white/70 group-hover:text-white/90 transition-colors">Test authentication flows and user access controls</div>
-                  </button>
-                  <button
-                    onClick={() => setPrompt("Test the checkout process including adding items to cart and payment")}
-                    className="group p-6 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl hover:bg-white/20 transition-all duration-300 text-left hover:scale-105 hover:shadow-xl"
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-pink-500 rounded-lg flex items-center justify-center">
-                        <span className="text-white text-sm">🛒</span>
-                      </div>
-                      <div className="font-semibold text-white group-hover:text-blue-200 transition-colors">Checkout Testing</div>
-                    </div>
-                    <div className="text-sm text-white/70 group-hover:text-white/90 transition-colors">Test purchase workflows and payment processing</div>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Conversation Messages */}
-            {conversationHistory.map((message, index) => (
-              <div key={index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} animate-slide-up`} style={{ animationDelay: `${index * 100}ms` }}>
-                <div className={`max-w-3xl ${message.type === 'user'
-                  ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-xl'
-                  : 'bg-white/10 backdrop-blur-sm border border-white/20 text-white shadow-xl'
-                  } rounded-3xl px-6 py-4 hover:scale-[1.02] transition-all duration-200`}>
-                  <div className="flex items-start gap-4">
-                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg ${message.type === 'user'
-                      ? 'bg-white/20 backdrop-blur-sm'
-                      : 'bg-gradient-to-br from-emerald-400 to-cyan-500'
-                      }`}>
-                      <span className="text-white text-lg font-medium">
-                        {message.type === 'user' ? '👤' : '🤖'}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-base leading-relaxed ${message.type === 'user' ? 'text-white' : 'text-white/90'}`}>
-                        {message.content}
-                      </p>
-                      <div className={`text-xs mt-2 ${message.type === 'user' ? 'text-white/70' : 'text-white/60'}`}>
-                        {message.timestamp.toLocaleTimeString()}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Generated Flows Display */}
-                  {message.flows && message.flows.length > 0 && (
-                    <div className="mt-6 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-semibold text-white text-lg">Generated Test Flows</h3>
-                        <button
-                          onClick={approveAllFlows}
-                          className="bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
-                        >
-                          ✨ Approve All
-                        </button>
-                      </div>
-                      <div className="space-y-3">
-                        {message.flows.map((flow, flowIndex) => (
-                          <div key={flowIndex} className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-200 hover:scale-[1.02]">
-                            <div className="flex items-start gap-4">
-                              <label className="flex items-center gap-3 cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={flows[flowIndex]?.approved || false}
-                                  onChange={() => toggleFlowApproval(flowIndex)}
-                                  className="w-5 h-5 text-emerald-500 bg-white/10 border-white/30 rounded-lg focus:ring-emerald-500 focus:ring-2"
-                                />
-                                <span className={`text-sm font-medium transition-colors ${flows[flowIndex]?.approved ? 'text-emerald-300' : 'text-white/70'}`}>
-                                  {flows[flowIndex]?.approved ? '✅ Approved' : '⏳ Pending'}
-                                </span>
-                              </label>
-                              <div className="flex-1">
-                                <h4 className="font-semibold text-white text-base mb-1">{flow.name}</h4>
-                                <p className="text-white/80 text-sm mb-2 leading-relaxed">{flow.description}</p>
-                                {flow.estimatedTime && (
-                                  <span className="inline-block bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-200 text-xs px-3 py-1 rounded-full border border-purple-400/30">
-                                    ⏱️ ~{flow.estimatedTime}s
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Quick Actions */}
-                      {getApprovedFlows().length > 0 && (
-                        <div className="flex items-center gap-4 pt-4 border-t border-white/20">
-                          <button className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-6 py-3 rounded-2xl text-sm font-semibold transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2">
-                            <span>🚀</span>
-                            <span>Start Testing ({getApprovedFlows().length} flows)</span>
-                          </button>
-                          <div className="bg-white/10 backdrop-blur-sm rounded-xl px-3 py-2 border border-white/20">
-                            <span className="text-xs text-white/80 font-medium">
-                              ⏱️ Est. time: {getApprovedFlows().reduce((total, flow) => total + (flow.estimatedTime || 30), 0)}s
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {/* Loading Message */}
-            {loading && (
-              <div className="flex justify-start animate-slide-up">
-                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-3xl px-6 py-4 shadow-xl">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center shadow-lg">
-                      <span className="text-white text-lg">🤖</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex space-x-1">
-                        <div className="w-3 h-3 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                        <div className="w-3 h-3 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                        <div className="w-3 h-3 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                      </div>
-                      <span className="text-white/90 text-base font-medium">Generating test flows...</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Input Area - Fixed at Bottom */}
-        <div className="relative z-10 backdrop-blur-sm bg-white/10 border-t border-white/20 px-6 py-6">
-          <div className="max-w-4xl mx-auto">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Website URL Input */}
-              <div className="flex items-center gap-4">
-                <label className="text-sm font-semibold text-white/90 whitespace-nowrap flex items-center gap-2">
-                  <span>🌐</span>
-                  <span>Website URL:</span>
-                </label>
+      {/* Main Content */}
+      <main className="relative z-10 flex flex-col items-center w-full max-w-2xl space-y-8">
+        {/* Input Card */}
+        <motion.div
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5, ease: 'easeInOut' }}
+          className="w-full"
+        >
+          <div className="relative w-full p-2 bg-white/60 border border-white/80 rounded-2xl shadow-xl shadow-black/5 backdrop-blur-2xl">
+            <form onSubmit={handleFormSubmit} className="flex items-center w-full gap-2">
+              <div className="flex items-center flex-grow p-2 rounded-lg bg-black/5">
+                <Type className="w-5 h-5 mx-2 text-black/40" />
                 <input
-                  type="url"
-                  value={websiteUrl}
-                  onChange={(e) => setWebsiteUrl(e.target.value)}
-                  placeholder="https://example.com (optional)"
-                  className="flex-1 px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/30 rounded-2xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all duration-200"
+                  type="text"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="What should we automate?"
+                  className="w-full h-10 text-sm bg-transparent focus:outline-none placeholder:text-black/40"
                 />
               </div>
-
-              {/* Main Prompt Input */}
-              <div className="flex items-end gap-4">
-                <div className="flex-1 relative">
-                  <textarea
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSubmit(e);
-                      }
-                    }}
-                    placeholder="Describe what you want to test on your website..."
-                    className="w-full px-6 py-4 bg-white/10 backdrop-blur-sm border border-white/30 rounded-3xl resize-none focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 text-white placeholder-white/60 transition-all duration-200"
-                    rows={1}
-                    style={{ maxHeight: '120px' }}
-                    onInput={(e) => {
-                      const target = e.target as HTMLTextAreaElement;
-                      target.style.height = 'auto';
-                      target.style.height = Math.min(target.scrollHeight, 120) + 'px';
-                    }}
-                  />
-                  <div className="absolute bottom-3 right-4 text-xs text-white/50">
-                    Press Enter to send, Shift+Enter for new line
-                  </div>
-                </div>
-                <button
-                  type="submit"
-                  disabled={!prompt.trim() || loading}
-                  className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white p-4 rounded-2xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 disabled:hover:scale-100"
-                >
-                  {loading ? (
-                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
-                  )}
-                </button>
+              <div className="hidden md:flex items-center p-2 rounded-lg bg-black/5">
+                <Globe className="w-5 h-5 mx-2 text-black/40" />
+                <input
+                  type="text"
+                  value={websiteUrl}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
+                  placeholder="Website URL"
+                  className="w-40 h-10 text-sm bg-transparent focus:outline-none placeholder:text-black/40"
+                />
               </div>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                type="submit"
+                className="flex items-center justify-center flex-shrink-0 w-12 h-12 bg-gray-800 rounded-full disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={!prompt || !websiteUrl || loading}
+              >
+                {loading ? (
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                    className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
+                  />
+                ) : (
+                  <ArrowUp className="w-6 h-6 text-white" />
+                )}
+              </motion.button>
             </form>
           </div>
-        </div>
+        </motion.div>
+
+        {/* Flows Grid */}
+        <AnimatePresence>
+          {showFlows && (
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4"
+            >
+              {flows.map((flow, index) => (
+                <motion.div
+                  key={index}
+                  variants={itemVariants}
+                  layout
+                  whileHover={{ scale: 1.03, y: -5 }}
+                  onClick={() => handleSelectFlow(index)}
+                  className={`relative flex flex-col justify-between p-4 transition-colors bg-white/60 border rounded-2xl shadow-lg shadow-black/5 backdrop-blur-2xl cursor-pointer group ${flow.approved ? 'border-blue-500/50' : 'border-white/80'}`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-2 text-gray-600">
+                      {getFlowIcon(flow.name)}
+                      <span className="px-2 py-0.5 text-xs text-gray-500 bg-black/5 rounded-full">
+                        {flow.estimatedTime ? `${Math.round(flow.estimatedTime / 60)}m` : '2m'}
+                      </span>
+                    </div>
+                    <h3 className="font-medium text-gray-800">{flow.name}</h3>
+                    <p className="mt-1 text-sm text-gray-500">{flow.description}</p>
+                  </div>
+                  <div className="flex items-center justify-between mt-4">
+                    <motion.div className={`flex items-center justify-center w-6 h-6 rounded-full border-2 transition-all ${flow.approved ? 'bg-blue-500 border-blue-500' : 'border-gray-300 bg-black/5'}`}>
+                      <AnimatePresence>
+                        {flow.approved && (
+                          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                            <Check className="w-4 h-4 text-white" />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // You can add edit functionality here
+                        }}
+                        className="p-2 text-gray-400 transition-colors rounded-full hover:bg-black/10 hover:text-gray-700"
+                      >
+                        <Edit3 size={16} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleFlowAction(index, 'declined');
+                        }}
+                        className="p-2 text-gray-400 transition-colors rounded-full hover:bg-red-500/10 hover:text-red-500"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
+
+      {/* "Run Selected" Button */}
+      <AnimatePresence>
+        {hasSelection && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 30 }}
+            className="fixed bottom-8 z-20"
+          >
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleRunProcess}
+              className="px-8 py-4 font-semibold text-white bg-gray-800 rounded-full shadow-2xl shadow-black/20"
+            >
+              Run {selectedFlows.length} Selected
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* --- STYLES & ANIMATIONS --- */}
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        @keyframes blob {
+          0% { transform: translate(0px, 0px) scale(1); }
+          33% { transform: translate(30px, -50px) scale(1.1); }
+          66% { transform: translate(-20px, 20px) scale(0.9); }
+          100% { transform: translate(0px, 0px) scale(1); }
+        }
+        .animate-blob { animation: blob 10s infinite; }
+        .animation-delay-4000 { animation-delay: -4s; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+      `}</style>
     </div>
   );
-}
+};
+
+export default HomePage;
