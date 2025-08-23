@@ -1,14 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import {
-    createTestSession,
-    listTestSessions,
-    getTestSession,
-    createTestFlows,
-    updateFlowApproval,
-    getConvexSystemStats
-} from "../../lib/api";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { Id } from "../../convex/_generated/dataModel";
 
 interface LogEntry {
     id: string;
@@ -40,15 +35,23 @@ interface TestFlow {
 
 export default function ConvexTestPage() {
     const [logs, setLogs] = useState<LogEntry[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [sessions, setSessions] = useState<TestSession[]>([]);
-    const [selectedSession, setSelectedSession] = useState<TestSession | null>(null);
-    const [sessionFlows, setSessionFlows] = useState<TestFlow[]>([]);
-    const [stats, setStats] = useState<any>(null);
+    const [selectedSessionId, setSelectedSessionId] = useState<Id<"testSessions"> | null>(null);
 
     // Form states
     const [sessionName, setSessionName] = useState("");
     const [sessionPrompt, setSessionPrompt] = useState("");
+
+    // Convex hooks
+    const sessions = useQuery(api.browserTesting.listTestSessions, { limit: 10 }) ?? [];
+    const selectedSession = useQuery(
+        api.browserTesting.getTestSession,
+        selectedSessionId ? { sessionId: selectedSessionId } : "skip"
+    );
+    const systemStats = useQuery(api.browserTesting.getSystemStats);
+
+    const createTestSession = useMutation(api.browserTesting.createTestSession);
+    const createTestFlows = useMutation(api.browserTesting.createTestFlows);
+    const updateFlowApproval = useMutation(api.browserTesting.updateFlowApproval);
 
     const addLog = (level: LogEntry['level'], message: string, data?: any) => {
         const logEntry: LogEntry = {
@@ -73,68 +76,28 @@ export default function ConvexTestPage() {
             return;
         }
 
-        setLoading(true);
         try {
             addLog("info", `Creating test session: ${sessionName}`);
-            const response = await createTestSession(sessionName, sessionPrompt);
+            const sessionId = await createTestSession({
+                name: sessionName,
+                prompt: sessionPrompt
+            });
 
-            if (response.status === "success") {
-                addLog("success", "Test session created successfully", response);
-                setSessionName("");
-                setSessionPrompt("");
-                // Refresh sessions list
-                await handleListSessions();
-            } else {
-                addLog("error", `Failed to create session: ${response.message}`);
-            }
+            addLog("success", "Test session created successfully", { sessionId });
+            setSessionName("");
+            setSessionPrompt("");
         } catch (error) {
             addLog("error", `Error creating session: ${error}`);
-        } finally {
-            setLoading(false);
         }
     };
 
-    const handleListSessions = async () => {
-        setLoading(true);
-        try {
-            addLog("info", "Fetching test sessions from Convex...");
-            const response = await listTestSessions(10);
-
-            if (response.data) {
-                setSessions(response.data);
-                addLog("success", `Retrieved ${response.data.length} test sessions`, response.data);
-            } else {
-                addLog("error", `Failed to retrieve sessions: ${response.error}`);
-            }
-        } catch (error) {
-            addLog("error", `Error fetching sessions: ${error}`);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleGetSession = async (sessionId: string) => {
-        setLoading(true);
-        try {
-            addLog("info", `Fetching session details: ${sessionId}`);
-            const response = await getTestSession(sessionId);
-
-            if (response.data) {
-                setSelectedSession(response.data);
-                setSessionFlows(response.data.flows || []);
-                addLog("success", "Session details retrieved", response.data);
-            } else {
-                addLog("error", `Failed to retrieve session: ${response.error}`);
-            }
-        } catch (error) {
-            addLog("error", `Error fetching session: ${error}`);
-        } finally {
-            setLoading(false);
-        }
+    const handleSelectSession = (sessionId: Id<"testSessions">) => {
+        setSelectedSessionId(sessionId);
+        addLog("info", `Selected session: ${sessionId}`);
     };
 
     const handleCreateSampleFlows = async () => {
-        if (!selectedSession) {
+        if (!selectedSessionId) {
             addLog("error", "No session selected");
             return;
         }
@@ -157,64 +120,31 @@ export default function ConvexTestPage() {
             }
         ];
 
-        setLoading(true);
         try {
-            addLog("info", `Creating ${sampleFlows.length} sample flows for session ${selectedSession._id}`);
-            const response = await createTestFlows(selectedSession._id, sampleFlows);
+            addLog("info", `Creating ${sampleFlows.length} sample flows for session ${selectedSessionId}`);
+            const flowIds = await createTestFlows({
+                sessionId: selectedSessionId,
+                flows: sampleFlows
+            });
 
-            if (response.flow_ids) {
-                addLog("success", `Created ${response.flow_ids.length} test flows`, response);
-                // Refresh session details
-                await handleGetSession(selectedSession._id);
-            } else {
-                addLog("error", `Failed to create flows: ${response.error}`);
-            }
+            addLog("success", `Created ${flowIds.length} test flows`, { flowIds });
         } catch (error) {
             addLog("error", `Error creating flows: ${error}`);
-        } finally {
-            setLoading(false);
         }
     };
 
-    const handleToggleFlowApproval = async (flowId: string, currentApproved: boolean) => {
-        setLoading(true);
+    const handleToggleFlowApproval = async (flowId: Id<"testFlows">, currentApproved: boolean) => {
         try {
             const newApproved = !currentApproved;
             addLog("info", `${newApproved ? "Approving" : "Unapproving"} flow: ${flowId}`);
-            const response = await updateFlowApproval(flowId, newApproved);
+            await updateFlowApproval({
+                flowId,
+                approved: newApproved
+            });
 
-            if (response.flow_id) {
-                addLog("success", `Flow ${newApproved ? "approved" : "unapproved"} successfully`);
-                // Refresh session details to get updated flow status
-                if (selectedSession) {
-                    await handleGetSession(selectedSession._id);
-                }
-            } else {
-                addLog("error", `Failed to update flow: ${response.error}`);
-            }
+            addLog("success", `Flow ${newApproved ? "approved" : "unapproved"} successfully`);
         } catch (error) {
             addLog("error", `Error updating flow approval: ${error}`);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleGetStats = async () => {
-        setLoading(true);
-        try {
-            addLog("info", "Fetching system statistics from Convex...");
-            const response = await getConvexSystemStats();
-
-            if (response.data) {
-                setStats(response.data);
-                addLog("success", "System statistics retrieved", response.data);
-            } else {
-                addLog("error", `Failed to retrieve stats: ${response.error}`);
-            }
-        } catch (error) {
-            addLog("error", `Error fetching stats: ${error}`);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -281,7 +211,7 @@ export default function ConvexTestPage() {
                                 </div>
                                 <button
                                     onClick={handleCreateSession}
-                                    disabled={loading || !sessionName.trim() || !sessionPrompt.trim()}
+                                    disabled={!sessionName.trim() || !sessionPrompt.trim()}
                                     className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md font-medium transition-colors"
                                 >
                                     Create Session
@@ -293,13 +223,9 @@ export default function ConvexTestPage() {
                         <div className="bg-white rounded-lg shadow-md p-6">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-xl font-semibold">Test Sessions</h2>
-                                <button
-                                    onClick={handleListSessions}
-                                    disabled={loading}
-                                    className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md font-medium transition-colors"
-                                >
-                                    Refresh
-                                </button>
+                                <div className="text-sm text-gray-500">
+                                    Live data ({sessions.length} sessions)
+                                </div>
                             </div>
 
                             {sessions.length > 0 ? (
@@ -307,11 +233,11 @@ export default function ConvexTestPage() {
                                     {sessions.map((session) => (
                                         <div
                                             key={session._id}
-                                            className={`p-4 border rounded-lg cursor-pointer transition-colors ${selectedSession?._id === session._id
-                                                    ? 'border-blue-500 bg-blue-50'
-                                                    : 'border-gray-200 hover:border-gray-300'
+                                            className={`p-4 border rounded-lg cursor-pointer transition-colors ${selectedSessionId === session._id
+                                                ? 'border-blue-500 bg-blue-50'
+                                                : 'border-gray-200 hover:border-gray-300'
                                                 }`}
-                                            onClick={() => handleGetSession(session._id)}
+                                            onClick={() => handleSelectSession(session._id)}
                                         >
                                             <div className="flex justify-between items-start">
                                                 <div>
@@ -324,9 +250,9 @@ export default function ConvexTestPage() {
                                                     </div>
                                                 </div>
                                                 <span className={`px-2 py-1 rounded text-xs font-medium ${session.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                                        session.status === 'running' ? 'bg-blue-100 text-blue-800' :
-                                                            session.status === 'failed' ? 'bg-red-100 text-red-800' :
-                                                                'bg-gray-100 text-gray-800'
+                                                    session.status === 'running' ? 'bg-blue-100 text-blue-800' :
+                                                        session.status === 'failed' ? 'bg-red-100 text-red-800' :
+                                                            'bg-gray-100 text-gray-800'
                                                     }`}>
                                                     {session.status}
                                                 </span>
@@ -346,8 +272,7 @@ export default function ConvexTestPage() {
                                     <h2 className="text-xl font-semibold">Session Details</h2>
                                     <button
                                         onClick={handleCreateSampleFlows}
-                                        disabled={loading}
-                                        className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md font-medium transition-colors"
+                                        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
                                     >
                                         Create Sample Flows
                                     </button>
@@ -358,10 +283,10 @@ export default function ConvexTestPage() {
                                     <p className="text-gray-600">{selectedSession.prompt}</p>
                                 </div>
 
-                                {sessionFlows.length > 0 ? (
+                                {selectedSession?.flows && selectedSession.flows.length > 0 ? (
                                     <div className="space-y-3">
-                                        <h4 className="font-medium">Test Flows ({sessionFlows.length})</h4>
-                                        {sessionFlows.map((flow) => (
+                                        <h4 className="font-medium">Test Flows ({selectedSession.flows.length})</h4>
+                                        {selectedSession.flows.map((flow) => (
                                             <div key={flow._id} className="p-3 border border-gray-200 rounded-lg">
                                                 <div className="flex justify-between items-start">
                                                     <div className="flex-1">
@@ -376,10 +301,9 @@ export default function ConvexTestPage() {
                                                         </span>
                                                         <button
                                                             onClick={() => handleToggleFlowApproval(flow._id, flow.approved)}
-                                                            disabled={loading}
                                                             className={`px-3 py-1 rounded text-xs font-medium transition-colors ${flow.approved
-                                                                    ? 'bg-red-100 text-red-800 hover:bg-red-200'
-                                                                    : 'bg-green-100 text-green-800 hover:bg-green-200'
+                                                                ? 'bg-red-100 text-red-800 hover:bg-red-200'
+                                                                : 'bg-green-100 text-green-800 hover:bg-green-200'
                                                                 }`}
                                                         >
                                                             {flow.approved ? 'Unapprove' : 'Approve'}
@@ -399,23 +323,19 @@ export default function ConvexTestPage() {
                         <div className="bg-white rounded-lg shadow-md p-6">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-xl font-semibold">System Statistics</h2>
-                                <button
-                                    onClick={handleGetStats}
-                                    disabled={loading}
-                                    className="bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md font-medium transition-colors"
-                                >
-                                    Get Stats
-                                </button>
+                                <div className="text-sm text-gray-500">
+                                    {systemStats ? "Live data" : "Loading..."}
+                                </div>
                             </div>
 
-                            {stats ? (
+                            {systemStats ? (
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="text-center">
-                                        <div className="text-2xl font-bold text-blue-600">{stats.activeSessions}</div>
+                                        <div className="text-2xl font-bold text-blue-600">{systemStats.activeSessions}</div>
                                         <div className="text-sm text-gray-500">Active Sessions</div>
                                     </div>
                                     <div className="text-center">
-                                        <div className="text-2xl font-bold text-green-600">{stats.activeBrowsers}</div>
+                                        <div className="text-2xl font-bold text-green-600">{systemStats.activeBrowsers}</div>
                                         <div className="text-sm text-gray-500">Active Browsers</div>
                                     </div>
                                 </div>

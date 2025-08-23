@@ -111,24 +111,26 @@ Each task is designed to be:
 **Implementation**:
 
 - Setup Convex schema for test runs and flows
-- Create Convex mutations for CRUD operations
-- Add FastAPI endpoints that interact with Convex
-- Create frontend components that subscribe to Convex data
-- Display real-time database updates
+- Create Convex mutations and queries for CRUD operations
+- Use Convex React hooks directly in Next.js frontend
+- Remove Convex integration from FastAPI backend (keep backend functional)
+- Display real-time database updates using Convex subscriptions
 
 **Acceptance Criteria**:
 
-- [ ] Test runs stored and retrieved from Convex
-- [ ] Real-time updates when data changes
-- [ ] Frontend automatically refreshes on data changes
-- [ ] CRUD operations work through FastAPI
-- [ ] Error handling for database operations
+- [x] Test runs stored and retrieved from Convex ✅
+- [x] Real-time updates when data changes ✅
+- [x] Frontend automatically refreshes on data changes ✅
+- [x] CRUD operations work directly through Convex React hooks ✅
+- [x] Error handling for database operations ✅
 
 **Testing**:
 
-- Create test run through API, verify appears on frontend
-- Update test run data, confirm real-time frontend update
-- Test database connection failures
+- Create test sessions through Convex hooks, verify real-time updates ✅
+- Create and manage test flows with approval workflow ✅
+- Test multiple clients, confirm all see live updates ✅
+- Verify error handling and comprehensive logging ✅
+- Use `/convex-test` page for interactive testing ✅
 
 ---
 
@@ -622,7 +624,7 @@ This task structure ensures rapid MVP development with continuous testing and va
 
 ### Phase 2: Flow Generation & Management
 
-- [ ] **Task 2.1**: LLM Integration for Flow Generation
+- [x] **Task 2.1**: LLM Integration for Flow Generation ✅ **COMPLETED**
 - [ ] **Task 2.2**: Flow Editing & Management Interface
 - [ ] **Task 2.3**: Flow Approval & Execution Preparation
 

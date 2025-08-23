@@ -10,6 +10,11 @@ import asyncio
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 import os
+from dotenv import load_dotenv
+from google import genai
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -24,22 +29,21 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="AI Browser Testing Agent API", version="1.0.0")
 
-# Convex client setup (will be initialized if CONVEX_URL is provided)
-try:
-    from convex import ConvexClient
-    CONVEX_URL = os.getenv("CONVEX_URL", "")
-    convex_client = ConvexClient(CONVEX_URL) if CONVEX_URL else None
-    if convex_client:
-        logger.info(f"Convex client initialized with URL: {CONVEX_URL}")
-    else:
-        logger.warning("CONVEX_URL not provided, Convex features will be disabled")
-        logger.info("To set up Convex: 1) Run 'npx convex dev' 2) Set CONVEX_URL environment variable")
-except ImportError:
-    logger.warning("Convex client not available, install with: pip install convex")
-    convex_client = None
-except Exception as e:
-    logger.error(f"Error initializing Convex client: {e}")
-    convex_client = None
+# Note: Convex runs directly in Next.js frontend, not in FastAPI backend
+
+# Gemini client setup (will be initialized if GEMINI_API_KEY is provided)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+gemini_client = None
+if GEMINI_API_KEY:
+    try:
+        gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+        logger.info("Gemini client initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize Gemini client: {e}")
+        gemini_client = None
+else:
+    logger.warning("GEMINI_API_KEY not provided, LLM features will be disabled")
+    logger.info("To set up Gemini: Set GEMINI_API_KEY environment variable")
 
 # Logging middleware
 @app.middleware("http")
@@ -80,24 +84,25 @@ class TestResponse(BaseModel):
     correlation_id: str
     test_data: Dict[str, Any]
 
-# Convex-related models
-class CreateTestSessionRequest(BaseModel):
-    name: str
+# Note: Convex models are defined in Next.js frontend (TypeScript)
+
+# LLM/Flow Generation models
+class GenerateFlowsRequest(BaseModel):
     prompt: str
+    website_url: Optional[str] = None
+    num_flows: Optional[int] = 5
 
-class CreateTestFlowsRequest(BaseModel):
-    session_id: str
-    flows: List[Dict[str, str]]
+class TestFlow(BaseModel):
+    name: str
+    description: str
+    instructions: str
 
-class UpdateFlowApprovalRequest(BaseModel):
-    flow_id: str
-    approved: bool
-
-class TestSessionResponse(BaseModel):
-    session_id: str
+class GenerateFlowsResponse(BaseModel):
+    flows: List[TestFlow]
     message: str
     status: str
     timestamp: str
+    generation_time: Optional[float] = None
 
 @app.get("/")
 async def root():
@@ -151,174 +156,175 @@ async def health_check():
         "service": "ai-browser-testing-agent-api",
         "timestamp": datetime.now().isoformat(),
         "version": "1.0.0",
-        "convex_enabled": convex_client is not None
+
+        "llm_enabled": gemini_client is not None
     }
 
-# ==================== CONVEX DATABASE ENDPOINTS ====================
+# ==================== LLM FLOW GENERATION ENDPOINTS ====================
 
-@app.post("/api/convex/test-session", response_model=TestSessionResponse)
-async def create_test_session(request: CreateTestSessionRequest):
-    """Create a new test session in Convex database"""
-    if not convex_client:
-        return TestSessionResponse(
-            session_id="",
-            message="Convex not available",
+def create_flow_generation_prompt(user_prompt: str, website_url: Optional[str] = None, num_flows: int = 5) -> str:
+    """Create a well-structured prompt for LLM to generate testing flows"""
+    
+    base_prompt = f"""You are an expert QA automation engineer. Generate {num_flows} comprehensive test flows for browser automation testing.
+
+USER REQUEST: {user_prompt}
+
+{f"WEBSITE TO TEST: {website_url}" if website_url else ""}
+
+Generate exactly {num_flows} test flows that cover different aspects of testing. Each flow should be:
+1. Specific and actionable
+2. Suitable for browser automation
+3. Comprehensive enough to catch real issues
+4. Focused on user-facing functionality
+
+For each test flow, provide:
+- name: A clear, descriptive name (max 50 characters)
+- description: A brief explanation of what this flow tests (max 100 characters)  
+- instructions: Detailed step-by-step instructions for browser automation (be specific about what to click, type, verify)
+
+Return ONLY a valid JSON array with this exact structure:
+[
+  {{
+    "name": "Test Flow Name",
+    "description": "Brief description of what this tests",
+    "instructions": "Step 1: Navigate to homepage. Step 2: Click login button. Step 3: Enter credentials. Step 4: Verify dashboard loads."
+  }}
+]
+
+Focus on realistic, important test scenarios like:
+- User authentication flows
+- Core functionality testing  
+- Navigation and UI interactions
+- Form submissions and validations
+- Error handling scenarios
+- Mobile responsiveness (if applicable)
+
+Make the instructions clear enough for an AI agent to execute them."""
+    
+    return base_prompt
+
+async def generate_flows_with_llm(prompt: str, website_url: Optional[str] = None, num_flows: int = 5) -> List[TestFlow]:
+    """Generate test flows using Gemini API"""
+    if not gemini_client:
+        raise ValueError("Gemini client not available")
+    
+    try:
+        # Create the prompt
+        system_prompt = create_flow_generation_prompt(prompt, website_url, num_flows)
+        
+        # Combine system and user prompts for Gemini
+        full_prompt = f"""You are an expert QA automation engineer. Generate test flows as valid JSON.
+
+{system_prompt}"""
+        
+        # Call Gemini API asynchronously
+        response = await gemini_client.aio.models.generate_content(
+            model='gemini-2.0-flash-001',
+            contents=full_prompt
+        )
+        
+        # Extract and parse response
+        content = response.text
+        if not content:
+            raise ValueError("Empty response from Gemini")
+            
+        content = content.strip()
+        
+        # Clean the response (remove markdown code blocks if present)
+        if content.startswith("```json"):
+            content = content[7:]
+        if content.startswith("```"):
+            content = content[3:]
+        if content.endswith("```"):
+            content = content[:-3]
+        
+        # Parse JSON response
+        flows_data = json.loads(content.strip())
+        
+        # Validate that flows_data is a list
+        if not isinstance(flows_data, list):
+            raise ValueError("Expected JSON array from LLM response")
+        
+        # Convert to TestFlow objects
+        flows = []
+        for flow_data in flows_data:
+            if not isinstance(flow_data, dict):
+                continue
+            if all(key in flow_data for key in ["name", "description", "instructions"]):
+                flows.append(TestFlow(
+                    name=flow_data["name"],
+                    description=flow_data["description"], 
+                    instructions=flow_data["instructions"]
+                ))
+        
+        if not flows:
+            raise ValueError("No valid flows generated from LLM response")
+        
+        return flows
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse LLM response as JSON: {e}")
+        logger.error(f"Raw response: {content if 'content' in locals() else 'No content'}")
+        raise ValueError("LLM returned invalid JSON response")
+    except Exception as e:
+        logger.error(f"Error generating flows with LLM: {e}")
+        raise
+
+@app.post("/api/generate-flows", response_model=GenerateFlowsResponse)
+async def generate_flows(request: GenerateFlowsRequest):
+    """Generate test flows using LLM based on user prompt"""
+    start_time = time.time()
+    
+    if not gemini_client:
+        return GenerateFlowsResponse(
+            flows=[],
+            message="LLM service not available. Please set GEMINI_API_KEY environment variable.",
             status="error",
             timestamp=datetime.now().isoformat()
         )
     
     try:
-        session_id = await convex_client.mutation("browserTesting:createTestSession", {
-            "name": request.name,
-            "prompt": request.prompt
-        })
+        logger.info(f"Generating flows for prompt: {request.prompt[:100]}...")
         
-        logger.info(f"Created test session: {session_id}")
+        # Generate flows using LLM
+        flows = await generate_flows_with_llm(
+            prompt=request.prompt,
+            website_url=request.website_url,
+            num_flows=request.num_flows or 5
+        )
         
-        return TestSessionResponse(
-            session_id=str(session_id),
-            message="Test session created successfully",
+        generation_time = round(time.time() - start_time, 2)
+        
+        logger.info(f"Successfully generated {len(flows)} flows in {generation_time}s")
+        
+        return GenerateFlowsResponse(
+            flows=flows,
+            message=f"Successfully generated {len(flows)} test flows",
             status="success",
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
+            generation_time=generation_time
         )
-    except Exception as e:
-        logger.error(f"Error creating test session: {str(e)}")
-        return TestSessionResponse(
-            session_id="",
-            message=f"Error creating test session: {str(e)}",
+        
+    except ValueError as e:
+        logger.error(f"Validation error in flow generation: {e}")
+        return GenerateFlowsResponse(
+            flows=[],
+            message=f"Flow generation failed: {str(e)}",
             status="error",
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
+            generation_time=round(time.time() - start_time, 2)
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error in flow generation: {e}")
+        return GenerateFlowsResponse(
+            flows=[],
+            message=f"An unexpected error occurred: {str(e)}",
+            status="error", 
+            timestamp=datetime.now().isoformat(),
+            generation_time=round(time.time() - start_time, 2)
         )
 
-@app.get("/api/convex/test-sessions")
-async def list_test_sessions(limit: Optional[int] = 20):
-    """Get list of test sessions from Convex database"""
-    if not convex_client:
-        return {"error": "Convex not available", "data": []}
-    
-    try:
-        sessions = await convex_client.query("browserTesting:listTestSessions", {
-            "limit": limit
-        })
-        
-        logger.info(f"Retrieved {len(sessions)} test sessions")
-        
-        return {
-            "message": "Test sessions retrieved successfully",
-            "status": "success",
-            "timestamp": datetime.now().isoformat(),
-            "data": sessions
-        }
-    except Exception as e:
-        logger.error(f"Error retrieving test sessions: {str(e)}")
-        return {
-            "error": f"Error retrieving test sessions: {str(e)}",
-            "data": []
-        }
-
-@app.get("/api/convex/test-session/{session_id}")
-async def get_test_session(session_id: str):
-    """Get a specific test session with flows"""
-    if not convex_client:
-        return {"error": "Convex not available", "data": None}
-    
-    try:
-        session = await convex_client.query("browserTesting:getTestSession", {
-            "sessionId": session_id
-        })
-        
-        logger.info(f"Retrieved test session: {session_id}")
-        
-        return {
-            "message": "Test session retrieved successfully",
-            "status": "success",
-            "timestamp": datetime.now().isoformat(),
-            "data": session
-        }
-    except Exception as e:
-        logger.error(f"Error retrieving test session {session_id}: {str(e)}")
-        return {
-            "error": f"Error retrieving test session: {str(e)}",
-            "data": None
-        }
-
-@app.post("/api/convex/test-flows")
-async def create_test_flows(request: CreateTestFlowsRequest):
-    """Create test flows for a session"""
-    if not convex_client:
-        return {"error": "Convex not available", "flow_ids": []}
-    
-    try:
-        flow_ids = await convex_client.mutation("browserTesting:createTestFlows", {
-            "sessionId": request.session_id,
-            "flows": request.flows
-        })
-        
-        logger.info(f"Created {len(flow_ids)} test flows for session {request.session_id}")
-        
-        return {
-            "message": f"Created {len(flow_ids)} test flows successfully",
-            "status": "success",
-            "timestamp": datetime.now().isoformat(),
-            "flow_ids": [str(fid) for fid in flow_ids]
-        }
-    except Exception as e:
-        logger.error(f"Error creating test flows: {str(e)}")
-        return {
-            "error": f"Error creating test flows: {str(e)}",
-            "flow_ids": []
-        }
-
-@app.put("/api/convex/flow-approval")
-async def update_flow_approval(request: UpdateFlowApprovalRequest):
-    """Update flow approval status"""
-    if not convex_client:
-        return {"error": "Convex not available"}
-    
-    try:
-        flow_id = await convex_client.mutation("browserTesting:updateFlowApproval", {
-            "flowId": request.flow_id,
-            "approved": request.approved
-        })
-        
-        action = "approved" if request.approved else "unapproved"
-        logger.info(f"Flow {flow_id} {action}")
-        
-        return {
-            "message": f"Flow {action} successfully",
-            "status": "success",
-            "timestamp": datetime.now().isoformat(),
-            "flow_id": str(flow_id)
-        }
-    except Exception as e:
-        logger.error(f"Error updating flow approval: {str(e)}")
-        return {
-            "error": f"Error updating flow approval: {str(e)}"
-        }
-
-@app.get("/api/convex/system-stats")
-async def get_convex_system_stats():
-    """Get system statistics from Convex"""
-    if not convex_client:
-        return {"error": "Convex not available", "data": None}
-    
-    try:
-        stats = await convex_client.query("browserTesting:getSystemStats", {})
-        
-        logger.info("Retrieved system stats from Convex")
-        
-        return {
-            "message": "System stats retrieved successfully",
-            "status": "success",
-            "timestamp": datetime.now().isoformat(),
-            "data": stats
-        }
-    except Exception as e:
-        logger.error(f"Error retrieving system stats: {str(e)}")
-        return {
-            "error": f"Error retrieving system stats: {str(e)}",
-            "data": None
-        }
+# Note: Convex database operations are handled directly in Next.js frontend
 
 # Streaming endpoint for Task 1.2
 async def generate_stream_data():

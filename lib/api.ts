@@ -106,8 +106,20 @@ async function apiRequest<T>(
       );
     }
 
-    const data = await response.json();
-    console.log(`[${requestId}] Response data:`, data);
+    let data;
+    try {
+      data = await response.json();
+      console.log(`[${requestId}] Response data:`, data);
+    } catch (parseError) {
+      console.error(`[${requestId}] JSON parse error:`, parseError);
+      const textContent = await response.text();
+      console.error(`[${requestId}] Raw response:`, textContent);
+      throw new ApiError(
+        `Failed to parse response as JSON: ${parseError}`,
+        response.status,
+        response,
+      );
+    }
 
     // Validate response with Zod schema if provided
     if (schema) {
@@ -149,39 +161,22 @@ export async function getStats(): Promise<StatsResponse> {
   return apiRequest("/api/stats", {}, StatsResponseSchema);
 }
 
-// Convex API functions
-export async function createTestSession(name: string, prompt: string) {
-  return apiRequest("/api/convex/test-session", {
+// Note: Convex operations are handled directly in Next.js components using Convex React hooks
+
+// LLM Flow Generation API functions
+export async function generateFlows(
+  prompt: string,
+  websiteUrl?: string,
+  numFlows?: number,
+) {
+  return apiRequest("/api/generate-flows", {
     method: "POST",
-    body: JSON.stringify({ name, prompt }),
+    body: JSON.stringify({
+      prompt,
+      website_url: websiteUrl,
+      num_flows: numFlows,
+    }),
   });
-}
-
-export async function listTestSessions(limit?: number) {
-  const endpoint = limit ? `/api/convex/test-sessions?limit=${limit}` : "/api/convex/test-sessions";
-  return apiRequest(endpoint);
-}
-
-export async function getTestSession(sessionId: string) {
-  return apiRequest(`/api/convex/test-session/${sessionId}`);
-}
-
-export async function createTestFlows(sessionId: string, flows: Array<{name: string, description: string, instructions: string}>) {
-  return apiRequest("/api/convex/test-flows", {
-    method: "POST",
-    body: JSON.stringify({ session_id: sessionId, flows }),
-  });
-}
-
-export async function updateFlowApproval(flowId: string, approved: boolean) {
-  return apiRequest("/api/convex/flow-approval", {
-    method: "PUT",
-    body: JSON.stringify({ flow_id: flowId, approved }),
-  });
-}
-
-export async function getConvexSystemStats() {
-  return apiRequest("/api/convex/system-stats");
 }
 
 // Streaming client utilities
@@ -304,6 +299,5 @@ export type {
   HealthResponse,
   TestResponse,
   StatsResponse,
-  StreamMessage,
   ApiError,
 };

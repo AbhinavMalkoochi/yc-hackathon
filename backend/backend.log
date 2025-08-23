@@ -85,3 +85,176 @@
 2025-08-23 03:10:39,928 - __main__ - INFO - To set up Convex: 1) Run 'npx convex dev' 2) Set CONVEX_URL environment variable
 2025-08-23 03:11:15,559 - main - INFO - [req_1755936675559] Request started: POST http://localhost:8000/api/convex/test-session
 2025-08-23 03:11:15,581 - main - INFO - [req_1755936675559] Request completed: 200 in 0.0222s
+2025-08-23 03:14:55,437 - main - WARNING - Convex client not available, install with: pip install convex
+2025-08-23 03:15:20,814 - main - INFO - [req_1755936920814] Request started: POST http://localhost:8000/api/convex/test-session
+2025-08-23 03:15:20,816 - main - INFO - [req_1755936920814] Request completed: 200 in 0.0022s
+2025-08-23 03:17:56,567 - main - INFO - [req_1755937076567] Request started: POST http://localhost:8000/api/convex/test-session
+2025-08-23 03:17:56,569 - main - INFO - [req_1755937076567] Request completed: 200 in 0.0022s
+2025-08-23 03:19:06,161 - main - WARNING - Convex client not available, install with: pip install convex
+2025-08-23 03:19:29,742 - main - WARNING - Convex client not available, install with: pip install convex
+2025-08-23 03:19:30,712 - main - INFO - OpenAI client initialized successfully
+2025-08-23 03:19:41,904 - main - WARNING - Convex client not available, install with: pip install convex
+2025-08-23 03:19:42,721 - main - INFO - OpenAI client initialized successfully
+2025-08-23 03:20:16,118 - main - WARNING - Convex client not available, install with: pip install convex
+2025-08-23 03:20:16,638 - main - INFO - OpenAI client initialized successfully
+2025-08-23 03:20:53,377 - main - WARNING - Convex client not available, install with: pip install convex
+2025-08-23 03:20:54,043 - main - INFO - OpenAI client initialized successfully
+2025-08-23 03:25:22,986 - main - INFO - OpenAI client initialized successfully
+2025-08-23 03:25:32,938 - main - INFO - OpenAI client initialized successfully
+2025-08-23 03:25:44,373 - main - INFO - OpenAI client initialized successfully
+2025-08-23 03:26:13,628 - main - INFO - OpenAI client initialized successfully
+2025-08-23 03:36:01,845 - main - INFO - OpenAI client initialized successfully
+2025-08-23 04:33:50,864 - main - INFO - [req_1755941630861] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 04:33:50,953 - main - INFO - Generating flows for prompt: adsasdasd...
+2025-08-23 04:34:11,183 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:34:11,187 - openai._base_client - INFO - Retrying request to /chat/completions in 0.409748 seconds
+2025-08-23 04:34:12,514 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:34:12,515 - openai._base_client - INFO - Retrying request to /chat/completions in 0.792254 seconds
+2025-08-23 04:34:13,765 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:34:13,826 - main - ERROR - Error generating flows with LLM: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:34:13,827 - main - ERROR - Unexpected error in flow generation: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:34:13,861 - main - INFO - [req_1755941630861] Request completed: 200 in 22.9998s
+2025-08-23 04:41:23,107 - main - INFO - OpenAI client initialized successfully
+2025-08-23 04:41:27,264 - main - INFO - [req_1755942087264] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 04:41:27,271 - main - INFO - Generating flows for prompt: asdasd...
+2025-08-23 04:41:29,166 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:41:29,167 - openai._base_client - INFO - Retrying request to /chat/completions in 0.472064 seconds
+2025-08-23 04:41:31,176 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:41:31,178 - openai._base_client - INFO - Retrying request to /chat/completions in 0.873294 seconds
+2025-08-23 04:41:33,848 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:41:33,850 - main - ERROR - Error generating flows with LLM: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:41:33,850 - main - ERROR - Unexpected error in flow generation: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:41:35,013 - main - INFO - [req_1755942087264] Request completed: 200 in 7.7486s
+2025-08-23 04:42:50,808 - main - INFO - OpenAI client initialized successfully
+2025-08-23 04:42:58,739 - main - INFO - [req_1755942178739] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 04:42:58,742 - main - INFO - Generating flows for prompt: asdasd...
+2025-08-23 04:42:59,354 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:42:59,354 - openai._base_client - INFO - Retrying request to /chat/completions in 0.460358 seconds
+2025-08-23 04:43:00,993 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:43:00,994 - openai._base_client - INFO - Retrying request to /chat/completions in 0.964999 seconds
+2025-08-23 04:43:02,050 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:43:02,051 - main - ERROR - Error generating flows with LLM: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:43:02,051 - main - ERROR - Unexpected error in flow generation: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:43:02,052 - main - INFO - [req_1755942178739] Request completed: 200 in 3.3126s
+2025-08-23 04:44:22,702 - main - INFO - OpenAI client initialized successfully
+2025-08-23 04:44:26,645 - main - INFO - OpenAI client initialized successfully
+2025-08-23 04:44:33,499 - main - INFO - [req_1755942273499] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 04:44:33,501 - main - INFO - Generating flows for prompt: asdasd...
+2025-08-23 04:44:34,039 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:44:34,039 - openai._base_client - INFO - Retrying request to /chat/completions in 0.496237 seconds
+2025-08-23 04:44:34,619 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:44:34,620 - openai._base_client - INFO - Retrying request to /chat/completions in 0.801584 seconds
+2025-08-23 04:44:35,512 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:44:35,513 - main - ERROR - Error generating flows with LLM: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:44:35,514 - main - ERROR - Unexpected error in flow generation: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:44:35,514 - main - INFO - [req_1755942273499] Request completed: 200 in 2.0148s
+2025-08-23 04:44:57,092 - main - INFO - OpenAI client initialized successfully
+2025-08-23 04:45:25,619 - main - INFO - OpenAI client initialized successfully
+2025-08-23 04:45:25,655 - main - INFO - [req_1755942325655] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 04:45:25,661 - main - INFO - Generating flows for prompt: asdasd...
+2025-08-23 04:45:26,152 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:45:26,152 - openai._base_client - INFO - Retrying request to /chat/completions in 0.413439 seconds
+2025-08-23 04:45:26,695 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:45:26,696 - openai._base_client - INFO - Retrying request to /chat/completions in 0.893743 seconds
+2025-08-23 04:45:27,679 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:45:27,682 - main - ERROR - Error generating flows with LLM: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:45:27,682 - main - ERROR - Unexpected error in flow generation: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:45:27,682 - main - INFO - [req_1755942325655] Request completed: 200 in 2.0274s
+2025-08-23 04:45:45,517 - main - INFO - OpenAI client initialized successfully
+2025-08-23 04:45:45,561 - main - INFO - [req_1755942345561] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 04:45:45,563 - main - INFO - Generating flows for prompt: asdasd...
+2025-08-23 04:45:46,062 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:45:46,063 - openai._base_client - INFO - Retrying request to /chat/completions in 0.418481 seconds
+2025-08-23 04:45:46,948 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:45:46,948 - openai._base_client - INFO - Retrying request to /chat/completions in 0.897636 seconds
+2025-08-23 04:45:47,925 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:45:47,927 - main - ERROR - Error generating flows with LLM: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:45:47,927 - main - ERROR - Unexpected error in flow generation: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:45:47,928 - main - INFO - [req_1755942345561] Request completed: 200 in 2.3669s
+2025-08-23 04:47:49,954 - main - INFO - OpenAI client initialized successfully
+2025-08-23 04:49:13,687 - main - INFO - OpenAI client initialized successfully
+2025-08-23 04:49:13,761 - main - INFO - [req_1755942553761] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 04:49:13,769 - main - INFO - Generating flows for prompt: asdasd...
+2025-08-23 04:49:16,424 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:49:16,436 - openai._base_client - INFO - Retrying request to /chat/completions in 0.492846 seconds
+2025-08-23 04:49:18,295 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:49:18,301 - openai._base_client - INFO - Retrying request to /chat/completions in 0.849848 seconds
+2025-08-23 04:49:19,303 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:49:19,305 - main - ERROR - Error generating flows with LLM: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:49:19,306 - main - ERROR - Unexpected error in flow generation: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:49:19,536 - main - INFO - [req_1755942553761] Request completed: 200 in 5.7744s
+2025-08-23 04:49:26,637 - main - INFO - OpenAI client initialized successfully
+2025-08-23 04:49:33,083 - main - INFO - OpenAI client initialized successfully
+2025-08-23 04:49:56,733 - main - INFO - OpenAI client initialized successfully
+2025-08-23 04:50:51,414 - main - INFO - OpenAI client initialized successfully
+2025-08-23 04:50:57,680 - main - INFO - [req_1755942657680] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 04:50:57,683 - main - INFO - Generating flows for prompt: asdasdasdasd...
+2025-08-23 04:50:58,573 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:50:58,574 - openai._base_client - INFO - Retrying request to /chat/completions in 0.382618 seconds
+2025-08-23 04:50:59,138 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:50:59,140 - openai._base_client - INFO - Retrying request to /chat/completions in 0.898370 seconds
+2025-08-23 04:51:00,118 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:51:00,119 - main - ERROR - Error generating flows with LLM: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:51:00,119 - main - ERROR - Unexpected error in flow generation: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:51:00,119 - main - INFO - [req_1755942657680] Request completed: 200 in 2.4391s
+2025-08-23 04:53:52,325 - main - INFO - [req_1755942832325] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 04:53:52,326 - main - INFO - Generating flows for prompt: asdasdasdasd...
+2025-08-23 04:53:52,853 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:53:52,854 - openai._base_client - INFO - Retrying request to /chat/completions in 0.417400 seconds
+2025-08-23 04:53:53,402 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:53:53,404 - openai._base_client - INFO - Retrying request to /chat/completions in 0.946212 seconds
+2025-08-23 04:53:54,439 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:53:54,440 - main - ERROR - Error generating flows with LLM: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:53:54,440 - main - ERROR - Unexpected error in flow generation: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:53:54,441 - main - INFO - [req_1755942832325] Request completed: 200 in 2.1161s
+2025-08-23 04:55:36,099 - main - INFO - OpenAI client initialized successfully
+2025-08-23 04:55:46,980 - main - INFO - [req_1755942946980] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 04:55:46,983 - main - INFO - Generating flows for prompt: asdasdasd...
+2025-08-23 04:55:48,846 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:55:48,846 - openai._base_client - INFO - Retrying request to /chat/completions in 0.421270 seconds
+2025-08-23 04:55:49,345 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:55:49,346 - openai._base_client - INFO - Retrying request to /chat/completions in 0.851543 seconds
+2025-08-23 04:55:50,291 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+2025-08-23 04:55:50,292 - main - ERROR - Error generating flows with LLM: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:55:50,293 - main - ERROR - Unexpected error in flow generation: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2025-08-23 04:55:50,294 - main - INFO - [req_1755942946980] Request completed: 200 in 3.3143s
+2025-08-23 04:58:02,226 - main - ERROR - Failed to initialize OpenAI client: name 'openai' is not defined
+2025-08-23 04:58:06,551 - main - WARNING - GEMINI_API_KEY not provided, LLM features will be disabled
+2025-08-23 04:58:06,551 - main - INFO - To set up Gemini: Set GEMINI_API_KEY environment variable
+2025-08-23 04:58:11,573 - main - WARNING - GEMINI_API_KEY not provided, LLM features will be disabled
+2025-08-23 04:58:11,574 - main - INFO - To set up Gemini: Set GEMINI_API_KEY environment variable
+2025-08-23 04:58:32,882 - main - WARNING - GEMINI_API_KEY not provided, LLM features will be disabled
+2025-08-23 04:58:32,882 - main - INFO - To set up Gemini: Set GEMINI_API_KEY environment variable
+2025-08-23 04:58:42,192 - main - WARNING - GEMINI_API_KEY not provided, LLM features will be disabled
+2025-08-23 04:58:42,193 - main - INFO - To set up Gemini: Set GEMINI_API_KEY environment variable
+2025-08-23 05:00:35,616 - main - WARNING - GEMINI_API_KEY not provided, LLM features will be disabled
+2025-08-23 05:00:35,617 - main - INFO - To set up Gemini: Set GEMINI_API_KEY environment variable
+2025-08-23 05:01:54,183 - main - WARNING - GEMINI_API_KEY not provided, LLM features will be disabled
+2025-08-23 05:01:54,183 - main - INFO - To set up Gemini: Set GEMINI_API_KEY environment variable
+2025-08-23 05:02:23,488 - main - WARNING - GEMINI_API_KEY not provided, LLM features will be disabled
+2025-08-23 05:02:23,488 - main - INFO - To set up Gemini: Set GEMINI_API_KEY environment variable
+2025-08-23 05:02:26,171 - main - WARNING - GEMINI_API_KEY not provided, LLM features will be disabled
+2025-08-23 05:02:26,172 - main - INFO - To set up Gemini: Set GEMINI_API_KEY environment variable
+2025-08-23 05:02:26,191 - main - INFO - [req_1755943346191] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 05:02:26,194 - main - INFO - [req_1755943346191] Request completed: 200 in 0.0025s
+2025-08-23 05:02:35,140 - main - WARNING - GEMINI_API_KEY not provided, LLM features will be disabled
+2025-08-23 05:02:35,140 - main - INFO - To set up Gemini: Set GEMINI_API_KEY environment variable
+2025-08-23 05:02:39,821 - main - INFO - [req_1755943359821] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 05:02:39,825 - main - INFO - [req_1755943359821] Request completed: 200 in 0.0030s
+2025-08-23 05:02:57,450 - main - WARNING - GEMINI_API_KEY not provided, LLM features will be disabled
+2025-08-23 05:02:57,450 - main - INFO - To set up Gemini: Set GEMINI_API_KEY environment variable
+2025-08-23 05:02:57,474 - main - INFO - [req_1755943377474] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 05:02:57,476 - main - INFO - [req_1755943377474] Request completed: 200 in 0.0022s
+2025-08-23 05:03:18,260 - main - WARNING - GEMINI_API_KEY not provided, LLM features will be disabled
+2025-08-23 05:03:18,261 - main - INFO - To set up Gemini: Set GEMINI_API_KEY environment variable
+2025-08-23 05:03:23,596 - main - INFO - [req_1755943403596] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 05:03:23,598 - main - INFO - [req_1755943403596] Request completed: 200 in 0.0020s
+2025-08-23 05:04:10,544 - main - INFO - [req_1755943450544] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 05:04:10,546 - main - INFO - [req_1755943450544] Request completed: 200 in 0.0017s
+2025-08-23 05:05:42,866 - main - INFO - Gemini client initialized successfully
+2025-08-23 05:06:15,104 - main - INFO - Gemini client initialized successfully
+2025-08-23 05:06:15,198 - main - INFO - [req_1755943575198] Request started: POST http://localhost:8000/api/generate-flows
+2025-08-23 05:06:15,202 - main - INFO - Generating flows for prompt: asdasdasd...
+2025-08-23 05:06:15,202 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-08-23 05:06:22,464 - main - INFO - Successfully generated 5 flows in 7.26s
+2025-08-23 05:06:22,468 - main - INFO - [req_1755943575198] Request completed: 200 in 7.2697s

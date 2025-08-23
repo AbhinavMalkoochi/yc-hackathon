@@ -1,158 +1,101 @@
-# AI Browser Testing Agent - Simplified MVP
+# AI Browser Testing Agent
 
-An AI-powered browser testing orchestrator that converts natural language prompts into automated website testing flows with real-time parallel browser execution.
+> **Intelligent browser automation powered by AI** - Generate, edit, and execute browser tests using natural language descriptions.
 
-## 🎯 MVP Core Functionality
+## 🏗️ Architecture Overview
 
-**User Flow**:
+**Modern Full-Stack with Frontend-First Database:**
 
-1. User inputs natural language prompt (e.g., "Test the checkout flow on an e-commerce site")
-2. AI generates 3-5 specific testing flows
-3. User reviews/edits flows and approves them
-4. System creates parallel browser sessions using Browser Use agents
-5. Real-time streaming of browser execution with live logs and progress
-6. Comprehensive results displayed after completion
+- **Frontend**: Next.js 14 + Convex (real-time database with React hooks)
+- **Backend**: FastAPI (functional endpoints for LLM, streaming, external services)
+- **Database**: Convex runs directly in frontend components
+- **AI**: OpenAI GPT-3.5-turbo for intelligent flow generation
+- **Browser Automation**: Browser Use library integration (upcoming)
 
-## 🛠️ Technology Stack
+**Core Principles:**
 
-- **Frontend**: Next.js 14+ (App Router), TypeScript, Tailwind CSS
-- **Backend**: FastAPI (Python), WebSocket for real-time streaming
-- **Database**: Convex (real-time database with built-in WebSocket support)
-- **Browser Automation**: Browser Use Python library (parallel agent sessions)
-- **AI**: LLM integration for flow generation from natural language
-- **Real-time Communication**: WebSocket connections for live browser session streaming
+- **Frontend-First Database**: Convex operates directly in React with real-time subscriptions
+- **Functional Backend**: FastAPI provides stateless services, no database logic
+- **Clean Separation**: Data persistence in frontend, external APIs in backend
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- Node.js 18+
-- Python 3.9+
-- OpenAI/Anthropic API key for LLM integration
-
-### Installation
-
-1. **Clone and install dependencies**:
-
 ```bash
+# 1. Install dependencies
 npm install
-cd backend && pip install -r requirements.txt
-```
+pip install -r backend/requirements.txt
 
-2. **Setup environment variables**:
-
-```bash
-# .env.local (for Next.js)
-NEXT_PUBLIC_CONVEX_URL=your_convex_url
-CONVEX_DEPLOYMENT=your_deployment
-
-# backend/.env (for FastAPI)
-OPENAI_API_KEY=your_openai_api_key
-CONVEX_URL=your_convex_url
-```
-
-3. **Initialize Convex**:
-
-```bash
+# 2. Setup Convex
 npx convex dev
-```
 
-### Running the Application
+# 3. Configure environment variables
+# See docs/setup.md for detailed configuration
 
-**Full stack development**:
-
-```bash
+# 4. Start development
 npm run dev
 ```
 
-This starts:
-
-- Next.js frontend on `http://localhost:3000`
-- FastAPI backend on `http://localhost:8000`
-- Convex development server
-
-**Individual components**:
-
-```bash
-npm run dev:frontend    # Next.js only
-npm run dev:fastapi     # FastAPI only
-npx convex dev          # Convex only
-```
-
-### API Documentation
-
-- FastAPI Swagger UI: `http://localhost:8000/docs`
-- FastAPI ReDoc: `http://localhost:8000/redoc`
-
 ## 📋 Development Progress
 
-**Current Status**: ✅ Task 1.2 Completed - WebSocket Real-time Communication Setup
+**✅ Phase 1 Complete**: Foundation & Real-time Infrastructure
 
-### Completed Features
+- Task 1.1: FastAPI-Next.js Integration & Testing
+- Task 1.2: Streaming Communication (Server-Sent Events)
+- Task 1.3: Convex Database Integration & Real-time Sync
 
-- ✅ **Task 1.1**: Basic FastAPI-Next.js Integration with comprehensive logging
-  - FastAPI `/api/test` endpoint with detailed response data
-  - Next.js `/test` page with real-time testing interface
-  - Comprehensive logging on both frontend and backend
-  - Error handling and visual feedback
-  - Request correlation IDs for tracing
+**✅ Phase 2 Current**: Flow Generation & Management
 
-- ✅ **Task 1.2**: Streaming Response Real-time Communication Setup
-  - FastAPI streaming endpoints (`/api/stream`, `/api/stream/simple`) with Server-Sent Events
-  - Real-time unidirectional communication with JSON message streaming
-  - Next.js EventSource client with automatic reconnection
-  - Live system statistics and comprehensive logging
-  - Efficient real-time data streaming
-  - Error handling and connection lifecycle management
+- Task 2.1: LLM Integration for Flow Generation ✅
+- Task 2.2: Flow Editing & Management Interface (Next)
+- Task 2.3: Flow Approval & Execution Preparation
 
-- ✅ **Task 1.3**: Convex Database Integration & Real-time Sync
-  - Comprehensive database schema for AI browser testing workflow
-  - Test sessions, flows, browser sessions, execution logs, and system stats tables
-  - FastAPI-Convex integration with full CRUD operations
-  - Real-time database operations and data synchronization
-  - Frontend testing interface with live data management
-  - Robust error handling and database transaction logging
+**📋 Phase 3 Upcoming**: Browser Use Integration & Parallel Sessions
 
-### Live Testing
+## 🧪 Live Testing
 
-- 🧪 **Test Page**: `/test` - Interactive testing interface for backend integration
-- 📡 **Streaming Test**: `/streaming-test` - Real-time streaming communication testing
-- 🗄️ **Convex Test**: `/convex-test` - Database integration and real-time sync testing
-- 📊 **API Docs**: `http://localhost:8000/docs` - FastAPI automatic documentation
-- 🔍 **Health Check**: `http://localhost:8000/health` - Service status monitoring
+Access interactive test interfaces for each completed feature:
 
-See [tasks.md](./tasks.md) for detailed development roadmap with granular, testable tasks.
+- 🧪 **API Integration**: `/test` - Backend integration testing
+- 📡 **Streaming**: `/streaming-test` - Real-time communication testing
+- 🗄️ **Database**: `/convex-test` - Convex real-time database testing
+- 🤖 **LLM Flow Generation**: `/flow-generation-test` - AI-powered flow generation
 
-## 🔄 What's Different from Standard Templates
+## 📚 Documentation
 
-**Removed for MVP Simplicity**:
+**Architecture & Components:**
 
-- Authentication (Clerk integration removed)
-- File upload systems
-- Complex notification systems
-- Data export functionality
-- Web scraping features
-- Over-engineered features
+- [FastAPI Backend](./docs/fastapi-backend.md) - API endpoints, LLM integration, streaming
+- [Next.js Frontend](./docs/nextjs-frontend.md) - React components, test interfaces, real-time UI
+- [Convex Database](./docs/convex-database.md) - Schema, functions, React integration
 
-**Added for Browser Testing**:
+**Development:**
 
-- Browser Use Python library integration
-- Parallel browser session management
-- Real-time WebSocket streaming
-- AI-powered flow generation
-- Live browser execution monitoring
+- [Task Roadmap](./tasks.md) - Detailed development roadmap with granular tasks
+- [API Reference](http://localhost:8000/docs) - Interactive FastAPI documentation (when running)
 
-## Learn more
+## 🔄 What's Different
 
-To learn more about developing your project with Convex, check out:
+This isn't your typical full-stack template:
 
-- The [Tour of Convex](https://docs.convex.dev/get-started) for a thorough introduction to Convex principles.
-- The rest of [Convex docs](https://docs.convex.dev/) to learn about all Convex features.
-- [Stack](https://stack.convex.dev/) for in-depth articles on advanced topics.
+1. **Frontend-First Database**: Convex runs directly in React components, not through API calls
+2. **Real-time Everything**: Live updates, streaming, and instant feedback across all interfaces
+3. **Progressive Testing**: Each development task has its own dedicated test interface
+4. **AI-First Design**: Built from the ground up for LLM integration and intelligent automation
+5. **Functional Backend**: Clean, stateless FastAPI functions without classes or complexity
 
-## Join the community
+## 🛠️ Tech Stack
 
-Join thousands of developers building full-stack apps with Convex:
+- **Frontend**: Next.js 14, TypeScript, Tailwind CSS, Convex React Hooks
+- **Backend**: FastAPI, Python, Pydantic, OpenAI API, Uvicorn
+- **Database**: Convex (real-time, serverless, integrated)
+- **Development**: TypeScript, ESLint, Hot Reload, Interactive Testing
 
-- Join the [Convex Discord community](https://convex.dev/community) to get help in real-time.
-- Follow [Convex on GitHub](https://github.com/get-convex/), star and contribute to the open-source implementation of Convex.
+## 📈 Current Status
+
+**Ready for Production Testing**: Core infrastructure complete with real-time database, LLM integration, and comprehensive testing interfaces.
+
+**Next Milestone**: Flow editing interface and Browser Use integration for actual browser automation.
+
+---
+
+**Quick Links**: [Tasks](./tasks.md) | [Backend Docs](./docs/fastapi-backend.md) | [Frontend Docs](./docs/nextjs-frontend.md) | [Database Docs](./docs/convex-database.md)

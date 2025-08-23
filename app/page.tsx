@@ -32,7 +32,7 @@ export default function Home() {
             <p className="text-blue-700 mb-4">
               Access testing interfaces for each completed task to verify functionality.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Link
                 href="/test"
                 className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-medium transition-colors text-center"
@@ -50,6 +50,12 @@ export default function Home() {
                 className="inline-block bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-md font-medium transition-colors text-center"
               >
                 🗄️ Task 1.3: Convex Database Test
+              </Link>
+              <Link
+                href="/flow-generation-test"
+                className="inline-block bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-md font-medium transition-colors text-center"
+              >
+                🤖 Task 2.1: LLM Flow Generation Test
               </Link>
             </div>
           </div>
