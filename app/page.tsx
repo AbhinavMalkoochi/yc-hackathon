@@ -4,7 +4,7 @@ import { useState, FC, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowUp, Check, Edit3, Globe, KeyRound, Trash2, Type,
-  Bot, BarChart3, Feather, Share2, Play, Clock, CheckCircle2, AlertCircle, X
+  Bot, BarChart3, Feather, Share2, Play, Clock, CheckCircle2, AlertCircle, X, Plus
 } from 'lucide-react';
 import { generateFlows } from "../lib/api";
 
@@ -50,14 +50,7 @@ const getFlowIcon = (flowName: string) => {
   return <Bot size={20} />;
 };
 
-interface SessionLog {
-  taskId: string;
-  logs: Array<{
-    type: 'step' | 'status' | 'completion' | 'error';
-    timestamp: string;
-    data: any;
-  }>;
-}
+
 
 const HomePage: FC = () => {
   const [prompt, setPrompt] = useState("");
@@ -73,11 +66,16 @@ const HomePage: FC = () => {
 
   // Live session management
   const [liveSessions, setLiveSessions] = useState<TestFlow[]>([]);
-  const [selectedSessionLogs, setSelectedSessionLogs] = useState<string | null>(null);
-  const [sessionLogs, setSessionLogs] = useState<Record<string, SessionLog>>({});
   const [activeStreams, setActiveStreams] = useState<Record<string, EventSource>>({});
   const [selectedSessionDetails, setSelectedSessionDetails] = useState<string | null>(null);
   const [sessionDetails, setSessionDetails] = useState<Record<string, any>>({});
+
+  // Flow editing state
+  const [editingFlow, setEditingFlow] = useState<number | null>(null);
+  const [editingFlowData, setEditingFlowData] = useState<TestFlow | null>(null);
+
+  // Debug effect to log state changes
+  console.log("Current selectedSessionDetails:", selectedSessionDetails);
 
   // --- MEMOIZED VALUES ---
   const approvedFlows = useMemo(() => flows.filter(f => f.status === 'approved'), [flows]);
@@ -255,6 +253,48 @@ const HomePage: FC = () => {
 
   const getApprovedFlows = () => flows.filter(flow => flow.approved);
 
+  // Flow editing functions
+  const startEditingFlow = (index: number) => {
+    setEditingFlow(index);
+    setEditingFlowData({ ...flows[index] });
+  };
+
+  const saveEditedFlow = (index: number) => {
+    if (editingFlowData) {
+      const newFlows = [...flows];
+      newFlows[index] = editingFlowData;
+      setFlows(newFlows);
+      setEditingFlow(null);
+      setEditingFlowData(null);
+    }
+  };
+
+  const cancelEditingFlow = () => {
+    setEditingFlow(null);
+    setEditingFlowData(null);
+  };
+
+  const deleteFlow = (index: number) => {
+    const newFlows = flows.filter((_, i) => i !== index);
+    setFlows(newFlows);
+    setEditingFlow(null);
+    setEditingFlowData(null);
+  };
+
+  const addNewFlow = () => {
+    const newFlow: TestFlow = {
+      name: "New Test Flow",
+      description: "Description for the new test flow",
+      instructions: "Step-by-step instructions for the new flow",
+      approved: false,
+      status: 'pending',
+      estimatedTime: 30
+    };
+    setFlows([...flows, newFlow]);
+    setEditingFlow(flows.length);
+    setEditingFlowData(newFlow);
+  };
+
   // Fetch detailed session information
   const fetchSessionDetails = async (taskId: string) => {
     try {
@@ -283,27 +323,12 @@ const HomePage: FC = () => {
     try {
       const eventSource = new EventSource(`http://localhost:8000/api/browser-cloud/task/${taskId}/stream`);
 
-      // Initialize logs for this task
-      setSessionLogs(prev => ({
-        ...prev,
-        [taskId]: { taskId, logs: [] }
-      }));
+
 
       eventSource.onmessage = (event) => {
         const logData = JSON.parse(event.data);
 
-        // Add log to session logs
-        setSessionLogs(prev => ({
-          ...prev,
-          [taskId]: {
-            ...prev[taskId],
-            logs: [...(prev[taskId]?.logs || []), {
-              type: logData.type,
-              timestamp: logData.timestamp,
-              data: logData
-            }]
-          }
-        }));
+
 
         // Update live URL in flows when available
         if (logData.type === 'status' && logData.live_url) {
@@ -388,18 +413,9 @@ const HomePage: FC = () => {
         <div className="flex justify-between items-center">
           <h1 className="text-xl font-semibold text-gray-700 tracking-tighter">qaesar</h1>
           <div className="flex gap-4">
-            <a
-              href="/browser-test"
-              className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
-            >
-              Browser Test
-            </a>
-            <a
-              href="/convex-test"
-              className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              All Tests
-            </a>
+            <span className="px-3 py-1 text-sm bg-gray-100 text-gray-600 rounded-lg">
+              AI Browser Testing Agent
+            </span>
           </div>
         </div>
       </header>
@@ -457,70 +473,183 @@ const HomePage: FC = () => {
         </motion.div>
 
         {/* Flows Grid */}
-        <AnimatePresence>
-          {showFlows && (
-            <motion.div
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
-              className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4"
+        <div className="w-full space-y-4">
+          {/* Add New Flow Button */}
+          <div className="flex justify-center">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={addNewFlow}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
             >
-              {flows.map((flow, index) => (
-                <motion.div
-                  key={index}
-                  variants={itemVariants}
-                  layout
-                  whileHover={{ scale: 1.03, y: -5 }}
-                  onClick={() => handleSelectFlow(index)}
-                  className={`relative flex flex-col justify-between p-4 transition-colors bg-white/60 border rounded-2xl shadow-lg shadow-black/5 backdrop-blur-2xl cursor-pointer group ${flow.approved ? 'border-blue-500/50' : 'border-white/80'}`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-2 text-gray-600">
-                      {getFlowIcon(flow.name)}
-                      <span className="px-2 py-0.5 text-xs text-gray-500 bg-black/5 rounded-full">
-                        {flow.estimatedTime ? `${Math.round(flow.estimatedTime / 60)}m` : '2m'}
-                      </span>
+              <Plus size={20} />
+              Add New Flow
+            </motion.button>
+          </div>
+
+          <AnimatePresence>
+            {showFlows && (
+              <motion.div
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4"
+              >
+                {flows.map((flow, index) => (
+                  <motion.div
+                    key={index}
+                    variants={itemVariants}
+                    layout
+                    whileHover={{ scale: 1.03, y: -5 }}
+                    onClick={() => handleSelectFlow(index)}
+                    className={`relative flex flex-col justify-between p-4 transition-colors bg-white/60 border rounded-2xl shadow-lg shadow-black/5 backdrop-blur-2xl cursor-pointer group ${flow.approved ? 'border-blue-500/50' : 'border-white/80'}`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2 text-gray-600">
+                        {getFlowIcon(flow.name)}
+                        <span className="px-2 py-0.5 text-xs text-gray-500 bg-black/5 rounded-full">
+                          {flow.estimatedTime ? `${Math.round(flow.estimatedTime / 60)}m` : '2m'}
+                        </span>
+                      </div>
+                      <h3 className="font-medium text-gray-800">{flow.name}</h3>
+                      <p className="mt-1 text-sm text-gray-500">{flow.description}</p>
                     </div>
-                    <h3 className="font-medium text-gray-800">{flow.name}</h3>
-                    <p className="mt-1 text-sm text-gray-500">{flow.description}</p>
-                  </div>
-                  <div className="flex items-center justify-between mt-4">
-                    <motion.div className={`flex items-center justify-center w-6 h-6 rounded-full border-2 transition-all ${flow.approved ? 'bg-blue-500 border-blue-500' : 'border-gray-300 bg-black/5'}`}>
-                      <AnimatePresence>
-                        {flow.approved && (
-                          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
-                            <Check className="w-4 h-4 text-white" />
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // You can add edit functionality here
-                        }}
-                        className="p-2 text-gray-400 transition-colors rounded-full hover:bg-black/10 hover:text-gray-700"
-                      >
-                        <Edit3 size={16} />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleFlowAction(index, 'declined');
-                        }}
-                        className="p-2 text-gray-400 transition-colors rounded-full hover:bg-red-500/10 hover:text-red-500"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                    <div className="flex items-center justify-between mt-4">
+                      <motion.div className={`flex items-center justify-center w-6 h-6 rounded-full border-2 transition-all ${flow.approved ? 'bg-blue-500 border-blue-500' : 'border-gray-300 bg-black/5'}`}>
+                        <AnimatePresence>
+                          {flow.approved && (
+                            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                              <Check className="w-4 h-4 text-white" />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditingFlow(index);
+                          }}
+                          className="p-2 text-gray-400 transition-colors rounded-full hover:bg-black/10 hover:text-gray-700"
+                          title="Edit Flow"
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteFlow(index);
+                          }}
+                          className="p-2 text-gray-400 transition-colors rounded-full hover:bg-red-500/10 hover:text-red-500"
+                          title="Delete Flow"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </main>
+
+      {/* Flow Editing Modal */}
+      <AnimatePresence>
+        {editingFlow !== null && editingFlowData && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+            onClick={() => setEditingFlow(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="p-6 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                <h3 className="text-xl font-semibold text-gray-800">
+                  {editingFlow === flows.length ? 'Add New Flow' : 'Edit Flow'}
+                </h3>
+                <button
+                  onClick={() => setEditingFlow(null)}
+                  className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Flow Name</label>
+                  <input
+                    type="text"
+                    value={editingFlowData.name}
+                    onChange={(e) => setEditingFlowData({ ...editingFlowData, name: e.target.value })}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <textarea
+                    value={editingFlowData.description}
+                    onChange={(e) => setEditingFlowData({ ...editingFlowData, description: e.target.value })}
+                    rows={3}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Instructions</label>
+                  <textarea
+                    value={editingFlowData.instructions}
+                    onChange={(e) => setEditingFlowData({ ...editingFlowData, instructions: e.target.value })}
+                    rows={6}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter step-by-step instructions for this flow..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Estimated Time (minutes)</label>
+                  <input
+                    type="number"
+                    value={editingFlowData.estimatedTime || 30}
+                    onChange={(e) => setEditingFlowData({ ...editingFlowData, estimatedTime: parseInt(e.target.value) || 30 })}
+                    min="1"
+                    max="120"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
+                <button
+                  onClick={cancelEditingFlow}
+                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => saveEditedFlow(editingFlow)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  {editingFlow === flows.length ? 'Add Flow' : 'Save Changes'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Live Browser Sessions */}
       <AnimatePresence>
@@ -543,17 +672,20 @@ const HomePage: FC = () => {
                   initial={{ scale: 0.95, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ delay: index * 0.1 }}
-                  className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden cursor-pointer hover:shadow-xl transition-all"
-                  onClick={() => {
-                    console.log("Session clicked:", session.taskId, session);
-                    if (session.taskId) {
-                      setSelectedSessionDetails(session.taskId);
-                      fetchSessionDetails(session.taskId);
-                    }
-                  }}
+                  className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden hover:shadow-xl transition-all"
                 >
                   {/* Session Header */}
-                  <div className="p-4 bg-gray-50 border-b border-gray-200">
+                  <div
+                    className="p-4 bg-gray-50 border-b border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => {
+                      console.log("Session header clicked:", session.taskId, session);
+                      alert("Session header clicked!");
+                      if (session.taskId) {
+                        setSelectedSessionDetails(session.taskId);
+                        fetchSessionDetails(session.taskId);
+                      }
+                    }}
+                  >
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-semibold text-gray-800 truncate">{session.name}</h3>
@@ -566,17 +698,20 @@ const HomePage: FC = () => {
                         </div>
                         <button
                           onClick={(e) => {
-                            e.stopPropagation(); // Prevent session card click
-                            console.log("View Logs clicked for session:", session.taskId, session);
-                            console.log("Current sessionLogs:", sessionLogs);
+                            e.preventDefault();
+                            e.stopPropagation(); // Prevent session header click
                             if (session.taskId) {
-                              setSelectedSessionLogs(session.taskId);
+                              // Navigate to logs page with session data
+                              const logsUrl = `/logs/${session.taskId}?name=${encodeURIComponent(session.name)}&description=${encodeURIComponent(session.description)}`;
+                              window.open(logsUrl, '_blank');
                             }
                           }}
-                          className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                          className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors relative z-10 border-2 border-blue-300"
+                          style={{ position: 'relative', zIndex: 10 }}
                         >
                           View Logs
                         </button>
+
                       </div>
                     </div>
                   </div>
@@ -584,13 +719,21 @@ const HomePage: FC = () => {
                   {/* Live Browser Iframe */}
                   <div className="relative">
                     {session.liveUrl ? (
-                      <iframe
-                        src={session.liveUrl}
-                        className="w-full h-96 border-0"
-                        title={`Live browser session: ${session.name}`}
-                        allow="camera; microphone; geolocation"
-                        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
-                      />
+                      <div className="relative">
+                        <iframe
+                          src={session.liveUrl}
+                          className="w-full h-96 border-0"
+                          title={`Live browser session: ${session.name}`}
+                          allow="camera; microphone; geolocation"
+                          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+                        />
+                        {/* Clickable overlay for browser interaction */}
+                        <div className="absolute inset-0 bg-transparent hover:bg-blue-50/20 transition-colors cursor-pointer flex items-center justify-center opacity-0 hover:opacity-100 group">
+                          <div className="bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg border">
+                            <p className="text-sm text-gray-700 font-medium">Click to interact with browser</p>
+                          </div>
+                        </div>
+                      </div>
                     ) : (
                       <div className="w-full h-96 bg-gray-100 flex items-center justify-center">
                         <div className="text-center">
@@ -602,7 +745,16 @@ const HomePage: FC = () => {
                   </div>
 
                   {/* Session Footer */}
-                  <div className="p-3 bg-gray-50 border-t border-gray-200">
+                  <div
+                    className="p-3 bg-gray-50 border-t border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => {
+                      console.log("Session footer clicked:", session.taskId, session);
+                      if (session.taskId) {
+                        setSelectedSessionDetails(session.taskId);
+                        fetchSessionDetails(session.taskId);
+                      }
+                    }}
+                  >
                     <div className="flex items-center justify-between text-xs text-gray-600">
                       <span>Task ID: {session.taskId?.slice(0, 8)}...</span>
                       <span>Status: {session.status}</span>
@@ -764,61 +916,31 @@ const HomePage: FC = () => {
                   </div>
                 </div>
 
-                {/* Right Panel - Live Logs */}
+                {/* Right Panel - Logs Info */}
                 <div className="w-1/2 p-6 overflow-y-auto">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Real-time Logs</h4>
-                  {sessionLogs[selectedSessionDetails]?.logs.length > 0 ? (
-                    <div className="space-y-3">
-                      {sessionLogs[selectedSessionDetails].logs.map((log, index) => (
-                        <div
-                          key={index}
-                          className={`p-3 rounded-lg text-sm ${log.type === 'step' ? 'bg-blue-50 border-blue-200' :
-                            log.type === 'status' ? 'bg-yellow-50 border-yellow-200' :
-                              log.type === 'completion' ? 'bg-green-50 border-green-200' :
-                                'bg-red-50 border-red-200'
-                            } border`}
-                        >
-                          <div className="flex justify-between items-start mb-2">
-                            <span className="font-medium capitalize text-gray-800">{log.type}</span>
-                            <span className="text-xs text-gray-500">
-                              {new Date(log.timestamp).toLocaleTimeString()}
-                            </span>
-                          </div>
-
-                          {log.type === 'step' && log.data.step && (
-                            <div className="space-y-1">
-                              <p><strong>Goal:</strong> {log.data.step.next_goal}</p>
-                              {log.data.step.evaluation_previous_goal && (
-                                <p><strong>Evaluation:</strong> {log.data.step.evaluation_previous_goal}</p>
-                              )}
-                            </div>
-                          )}
-
-                          {log.type === 'status' && (
-                            <div className="space-y-1">
-                              <p><strong>Status:</strong> {log.data.status}</p>
-                              <p><strong>Steps:</strong> {log.data.steps_count}</p>
-                            </div>
-                          )}
-
-                          {log.type === 'completion' && (
-                            <div>
-                              <p><strong>Final Status:</strong> {log.data.status}</p>
-                              {log.data.output && <p><strong>Output:</strong> {log.data.output}</p>}
-                            </div>
-                          )}
-
-                          {log.type === 'error' && (
-                            <p className="text-red-700">{log.data.error}</p>
-                          )}
-                        </div>
-                      ))}
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Logs & Monitoring</h4>
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h5 className="font-medium text-blue-800 mb-2">View Detailed Logs</h5>
+                      <p className="text-sm text-blue-700 mb-3">
+                        Click the "View Logs" button in the session header to open a comprehensive logs page with:
+                      </p>
+                      <ul className="text-sm text-blue-600 space-y-1">
+                        <li>• Real-time console logs</li>
+                        <li>• Network request logs</li>
+                        <li>• Execution steps breakdown</li>
+                        <li>• Live browser preview</li>
+                      </ul>
                     </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500">No logs available yet...</p>
+
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <h5 className="font-medium text-gray-800 mb-2">Current Status</h5>
+                      <p className="text-sm text-gray-600">
+                        This session is currently running and streaming logs in real-time.
+                        Use the dedicated logs page for detailed monitoring and debugging.
+                      </p>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -826,96 +948,7 @@ const HomePage: FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Session Logs Modal */}
-      <AnimatePresence>
-        {selectedSessionLogs && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-            onClick={() => setSelectedSessionLogs(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Modal Header */}
-              <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">Session Logs</h3>
-                  <p className="text-sm text-gray-600">Task ID: {selectedSessionLogs}</p>
-                </div>
-                <button
-                  onClick={() => setSelectedSessionLogs(null)}
-                  className="p-2 hover:bg-gray-200 rounded-full transition-colors"
-                >
-                  <X size={20} />
-                </button>
-              </div>
 
-              {/* Logs Content */}
-              <div className="p-4 max-h-96 overflow-y-auto">
-                {sessionLogs[selectedSessionLogs]?.logs.length > 0 ? (
-                  <div className="space-y-3">
-                    {sessionLogs[selectedSessionLogs].logs.map((log, index) => (
-                      <div
-                        key={index}
-                        className={`p-3 rounded-lg text-sm ${log.type === 'step' ? 'bg-blue-50 border-blue-200' :
-                          log.type === 'status' ? 'bg-yellow-50 border-yellow-200' :
-                            log.type === 'completion' ? 'bg-green-50 border-green-200' :
-                              'bg-red-50 border-red-200'
-                          } border`}
-                      >
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="font-medium capitalize text-gray-800">{log.type}</span>
-                          <span className="text-xs text-gray-500">
-                            {new Date(log.timestamp).toLocaleTimeString()}
-                          </span>
-                        </div>
-
-                        {log.type === 'step' && log.data.step && (
-                          <div className="space-y-1">
-                            <p><strong>Goal:</strong> {log.data.step.next_goal}</p>
-                            {log.data.step.evaluation_previous_goal && (
-                              <p><strong>Evaluation:</strong> {log.data.step.evaluation_previous_goal}</p>
-                            )}
-                          </div>
-                        )}
-
-                        {log.type === 'status' && (
-                          <div className="space-y-1">
-                            <p><strong>Status:</strong> {log.data.status}</p>
-                            <p><strong>Steps:</strong> {log.data.steps_count}</p>
-                          </div>
-                        )}
-
-                        {log.type === 'completion' && (
-                          <div>
-                            <p><strong>Final Status:</strong> {log.data.status}</p>
-                            {log.data.output && <p><strong>Output:</strong> {log.data.output}</p>}
-                          </div>
-                        )}
-
-                        {log.type === 'error' && (
-                          <p className="text-red-700">{log.data.error}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">No logs available yet...</p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* "Run Selected" Button */}
       <AnimatePresence>
