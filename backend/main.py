@@ -280,7 +280,7 @@ Generate exactly {num_flows} test flows that cover different aspects of testing.
 For each test flow, provide:
 - name: A clear, descriptive name (max 50 characters)
 - description: A brief explanation of what this flow tests (max 100 characters)  
-- instructions: Detailed step-by-step instructions for browser automation (be specific about what to click, type, verify)
+- instructions: Step by Step overview on what to do. do not exactly impose any details but give a general idea and guiding instructions.
 
 Return ONLY a valid JSON array with this exact structure:
 [
