@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import {
     ArrowUp, Check, Edit3, Globe, KeyRound, Trash2, Type,
     Bot, BarChart3, Feather, Share2, Play, Clock, CheckCircle2, AlertCircle, Plus,
-    Menu, ChevronRight
+    Menu, ChevronRight, Shield, Eye, EyeOff
 } from 'lucide-react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
@@ -27,7 +27,8 @@ interface TestFlow {
     estimatedTime?: number;
     taskId?: string;
     liveUrl?: string;
-    sessionId?: Id<"testSessions">;
+    sessionId?: Id<"testSessions">; // Test session ID
+    browserSessionId?: string; // Browser session ID
 }
 
 interface ConvexFlow {
@@ -44,6 +45,18 @@ interface GenerationResponse {
     message: string;
     status: string;
     generation_time?: number;
+}
+
+// Credentials management types
+interface Credential {
+    key: string;
+    value: string;
+    isVisible: boolean;
+}
+
+interface WebsiteCredentials {
+    domain: string;
+    credentials: Credential[];
 }
 
 type CreateBrowserSessionArgs = {
@@ -155,6 +168,13 @@ function AuthenticatedContent() {
     // Flow editing state
     const [editingFlow, setEditingFlow] = useState<number | null>(null);
     const [editingFlowData, setEditingFlowData] = useState<TestFlow | null>(null);
+
+    // Credentials management state
+    const [credentials, setCredentials] = useState<WebsiteCredentials[]>([]);
+    const [showCredentialsPanel, setShowCredentialsPanel] = useState(false);
+    const [editingCredentials, setEditingCredentials] = useState<WebsiteCredentials | null>(null);
+    const [newCredentialKey, setNewCredentialKey] = useState('');
+    const [newCredentialValue, setNewCredentialValue] = useState('');
 
     // Convex queries and mutations
     const userSessions = useQuery(api.browserTesting.listTestSessions, { limit: 20 });
@@ -333,7 +353,7 @@ function AuthenticatedContent() {
                 approved: true,
                 status: session.status === 'executing' ? 'running' as const : session.status as TestFlow['status'],
                 taskId: session.taskId,
-                sessionId: session.browserSessionId as Id<"testSessions">, // Convert string to proper ID type
+                browserSessionId: session.browserSessionId, // Browser session ID (string)
                 liveUrl: session.liveUrl,
                 estimatedTime: session.metadata?.estimatedTime || 30
             }));
@@ -551,7 +571,7 @@ function AuthenticatedContent() {
                         ...flow,
                         status: 'running' as const,
                         taskId: taskData.task_id,
-                        sessionId: taskData.session_id,
+                        browserSessionId: taskData.session_id, // Browser session ID (string)
                         liveUrl: taskData.live_url
                     };
 
