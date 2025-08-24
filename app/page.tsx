@@ -344,7 +344,7 @@ function AuthenticatedContent() {
 
             // Call parallel flows endpoint
             console.log("Calling parallel flows endpoint with:", flowDescriptions.length, "flows");
-            const response = await fetch("http://localhost:8000/api/browser-cloud/parallel-flows", {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_FASTAPI_URL}/api/browser-cloud/parallel-flows`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -497,7 +497,7 @@ function AuthenticatedContent() {
         if (activeStreams[taskId]) return; // Already streaming
 
         try {
-            const eventSource = new EventSource(`http://localhost:8000/api/browser-cloud/task/${taskId}/stream`);
+            const eventSource = new EventSource(`${process.env.NEXT_PUBLIC_FASTAPI_URL}/api/browser-cloud/task/${taskId}/stream`);
 
             eventSource.onmessage = (event) => {
                 const logData = JSON.parse(event.data);

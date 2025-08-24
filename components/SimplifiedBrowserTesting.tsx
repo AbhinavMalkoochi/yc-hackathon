@@ -298,7 +298,7 @@ export default function SimplifiedBrowserTesting() {
         console.log("Testing backend with payload:", testPayload);
 
         try {
-            const response = await fetch("http://localhost:8000/api/test-request", {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_FASTAPI_URL}/api/test-request`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -371,7 +371,7 @@ export default function SimplifiedBrowserTesting() {
             };
             console.log("Request payload:", requestPayload);
 
-            const response = await fetch("http://localhost:8000/api/browser-cloud/parallel-flows", {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_FASTAPI_URL}/api/browser-cloud/parallel-flows`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -543,7 +543,7 @@ export default function SimplifiedBrowserTesting() {
         if (activeStreams[taskId]) return; // Already streaming
 
         try {
-            const eventSource = new EventSource(`http://localhost:8000/api/browser-cloud/task/${taskId}/stream`);
+            const eventSource = new EventSource(`${process.env.NEXT_PUBLIC_FASTAPI_URL}/api/browser-cloud/task/${taskId}/stream`);
 
             eventSource.onmessage = (event) => {
                 const logData = JSON.parse(event.data);

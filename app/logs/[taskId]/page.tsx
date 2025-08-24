@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, RefreshCw, Play, Pause, X, Globe, Activity, FileText, Network, Terminal } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Play, Pause, Globe, Activity, FileText, Network, Terminal } from 'lucide-react';
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 import { SignInButton, UserButton } from "@clerk/nextjs";
 
@@ -12,7 +12,7 @@ interface SessionLog {
   logs: Array<{
     type: 'step' | 'status' | 'completion' | 'error';
     timestamp: string;
-    data: any;
+    data: Record<string, unknown>;
   }>;
 }
 
@@ -27,17 +27,53 @@ interface NetworkLog {
   headers: Record<string, string>;
 }
 
+interface SessionDetails {
+  status?: string;
+  steps_count?: number;
+  live_url?: string;
+  started_at?: string;
+  finished_at?: string;
+  done_output?: string;
+  steps?: Array<{
+    url?: string;
+    next_goal?: string;
+    evaluation_previous_goal?: string;
+    network_requests?: Array<{
+      method?: string;
+      url?: string;
+      status?: number;
+      response_time?: number;
+      request_size?: number;
+      response_size?: number;
+      headers?: Record<string, string>;
+    }>;
+  }>;
+}
+
+interface NetworkRequest {
+  method?: string;
+  url?: string;
+  status?: number;
+  response_time?: number;
+  request_size?: number;
+  response_size?: number;
+  headers?: Record<string, string>;
+}
+
+interface Step {
+  url?: string;
+  next_goal?: string;
+  evaluation_previous_goal?: string;
+  network_requests?: NetworkRequest[];
+}
+
 const LogsPage = () => {
   const params = useParams();
   const searchParams = useSearchParams();
   const taskId = params.taskId as string;
 
-  // Session info from URL params
-  const sessionName = searchParams.get('name') || 'Unknown Session';
-  const sessionDescription = searchParams.get('description') || 'No description available';
-
   // State management
-  const [sessionDetails, setSessionDetails] = useState<any>(null);
+  const [sessionDetails, setSessionDetails] = useState<SessionDetails | null>(null);
   const [sessionLogs, setSessionLogs] = useState<SessionLog | null>(null);
   const [networkLogs, setNetworkLogs] = useState<NetworkLog[]>([]);
   const [activeTab, setActiveTab] = useState<'overview' | 'logs' | 'network' | 'steps'>('overview');
@@ -60,9 +96,9 @@ const LogsPage = () => {
       // Extract network logs from steps if available
       if (details.steps) {
         const extractedNetworkLogs: NetworkLog[] = [];
-        details.steps.forEach((step: any, index: number) => {
+        details.steps.forEach((step: Step) => {
           if (step.network_requests) {
-            step.network_requests.forEach((req: any) => {
+            step.network_requests.forEach((req: NetworkRequest) => {
               extractedNetworkLogs.push({
                 timestamp: new Date().toISOString(),
                 method: req.method || 'GET',
@@ -84,7 +120,7 @@ const LogsPage = () => {
   };
 
   // Start streaming logs
-  const startStreaming = () => {
+  const startStreaming = useCallback(() => {
     if (eventSource) return;
 
     try {
@@ -121,7 +157,7 @@ const LogsPage = () => {
     } catch (error) {
       console.error('Failed to start streaming:', error);
     }
-  };
+  }, [eventSource, taskId]);
 
   // Stop streaming
   const stopStreaming = () => {
@@ -156,7 +192,7 @@ const LogsPage = () => {
       clearInterval(interval);
       stopStreaming();
     };
-  }, [taskId, autoRefresh]);
+  }, [taskId, autoRefresh, startStreaming]);
 
   // Auto-scroll network logs
   useEffect(() => {
@@ -199,6 +235,17 @@ const LogsPage = () => {
     if (status >= 400 && status < 500) return 'text-yellow-600';
     if (status >= 500) return 'text-red-600';
     return 'text-gray-600';
+  };
+
+  // Helper function to safely extract string values from log data
+  const getLogValue = (data: Record<string, unknown>, key: string): string => {
+    const value = data[key];
+    return value != null ? String(value) : '';
+  };
+
+  const getStepValue = (step: Record<string, unknown>, key: string): string => {
+    const value = step[key];
+    return value != null ? String(value) : '';
   };
 
   return (
@@ -242,7 +289,7 @@ const LogsPageContent = () => {
   const sessionDescription = searchParams.get('description') || 'No description available';
 
   // State management
-  const [sessionDetails, setSessionDetails] = useState<any>(null);
+  const [sessionDetails, setSessionDetails] = useState<SessionDetails | null>(null);
   const [sessionLogs, setSessionLogs] = useState<SessionLog | null>(null);
   const [networkLogs, setNetworkLogs] = useState<NetworkLog[]>([]);
   const [activeTab, setActiveTab] = useState<'overview' | 'logs' | 'network' | 'steps'>('overview');
@@ -265,9 +312,9 @@ const LogsPageContent = () => {
       // Extract network logs from steps if available
       if (details.steps) {
         const extractedNetworkLogs: NetworkLog[] = [];
-        details.steps.forEach((step: any, index: number) => {
+        details.steps.forEach((step: Step) => {
           if (step.network_requests) {
-            step.network_requests.forEach((req: any) => {
+            step.network_requests.forEach((req: NetworkRequest) => {
               extractedNetworkLogs.push({
                 timestamp: new Date().toISOString(),
                 method: req.method || 'GET',
@@ -289,7 +336,7 @@ const LogsPageContent = () => {
   };
 
   // Start streaming logs
-  const startStreaming = () => {
+  const startStreaming = useCallback(() => {
     if (eventSource) return;
 
     try {
@@ -326,7 +373,7 @@ const LogsPageContent = () => {
     } catch (error) {
       console.error('Failed to start streaming:', error);
     }
-  };
+  }, [eventSource, taskId]);
 
   // Stop streaming
   const stopStreaming = () => {
@@ -361,7 +408,7 @@ const LogsPageContent = () => {
       clearInterval(interval);
       stopStreaming();
     };
-  }, [taskId, autoRefresh]);
+  }, [taskId, autoRefresh, startStreaming]);
 
   // Auto-scroll network logs
   useEffect(() => {
@@ -404,6 +451,17 @@ const LogsPageContent = () => {
     if (status >= 400 && status < 500) return 'text-yellow-600';
     if (status >= 500) return 'text-red-600';
     return 'text-gray-600';
+  };
+
+  // Helper function to safely extract string values from log data
+  const getLogValue = (data: Record<string, unknown>, key: string): string => {
+    const value = data[key];
+    return value != null ? String(value) : '';
+  };
+
+  const getStepValue = (step: Record<string, unknown>, key: string): string => {
+    const value = step[key];
+    return value != null ? String(value) : '';
   };
 
   return (
@@ -507,7 +565,7 @@ const LogsPageContent = () => {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
+                    onClick={() => setActiveTab(tab.id as 'overview' | 'logs' | 'network' | 'steps')}
                     className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 transition-colors ${activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -564,7 +622,7 @@ const LogsPageContent = () => {
                       </div>
                       <div className="flex items-center justify-between text-black">
                         <span className="font-medium">Status:</span>
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(sessionDetails?.status)}`}>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(sessionDetails?.status || '')}`}>
                           {sessionDetails?.status || 'Unknown'}
                         </span>
                       </div>
@@ -629,29 +687,29 @@ const LogsPageContent = () => {
 
                             {log.type === 'step' && log.data.step && (
                               <div className="space-y-1 text-black">
-                                <p><strong>Goal:</strong> {log.data.step.next_goal}</p>
-                                {log.data.step.evaluation_previous_goal && (
-                                  <p><strong>Evaluation:</strong> {log.data.step.evaluation_previous_goal}</p>
+                                <p><strong>Goal:</strong> {getStepValue(log.data.step as Record<string, unknown>, 'next_goal')}</p>
+                                {(log.data.step as Record<string, unknown>).evaluation_previous_goal && (
+                                  <p><strong>Evaluation:</strong> {getStepValue(log.data.step as Record<string, unknown>, 'evaluation_previous_goal')}</p>
                                 )}
                               </div>
                             )}
 
                             {log.type === 'status' && (
                               <div className="space-y-1 text-black">
-                                <p><strong>Status:</strong> {log.data.status}</p>
-                                <p><strong>Steps:</strong> {log.data.steps_count}</p>
+                                <p><strong>Status:</strong> {getLogValue(log.data, 'status')}</p>
+                                <p><strong>Steps:</strong> {getLogValue(log.data, 'steps_count')}</p>
                               </div>
                             )}
 
                             {log.type === 'completion' && (
                               <div className="text-black">
-                                <p><strong>Final Status:</strong> {log.data.status}</p>
-                                {log.data.output && <p><strong>Output:</strong> {log.data.output}</p>}
+                                <p><strong>Final Status:</strong> {getLogValue(log.data, 'status')}</p>
+                                {log.data.output && <p><strong>Output:</strong> {getLogValue(log.data, 'output')}</p>}
                               </div>
                             )}
 
                             {log.type === 'error' && (
-                              <p className="text-red-700">{log.data.error}</p>
+                              <p className="text-red-700">{getLogValue(log.data, 'error')}</p>
                             )}
                           </div>
                         ))}
@@ -742,7 +800,7 @@ const LogsPageContent = () => {
                   <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
                     {sessionDetails?.steps?.length ? (
                       <div className="space-y-3">
-                        {sessionDetails.steps.map((step: any, index: number) => (
+                        {sessionDetails.steps.map((step: Step, index: number) => (
                           <div key={index} className="bg-white rounded-lg p-3 border-l-4 border-blue-500">
                             <div className="flex items-center justify-between mb-2">
                               <span className="font-medium text-sm">Step {index + 1}</span>
@@ -762,7 +820,7 @@ const LogsPageContent = () => {
                               <div className="mt-2 pt-2 border-t border-gray-200">
                                 <p className="text-xs font-medium text-gray-600 mb-1">Network Requests:</p>
                                 <div className="space-y-1">
-                                  {step.network_requests.map((req: any, reqIndex: number) => (
+                                  {step.network_requests.map((req: NetworkRequest, reqIndex: number) => (
                                     <div key={reqIndex} className="text-xs bg-gray-50 p-2 rounded">
                                       <span className={`inline-block px-1 py-0.5 rounded text-xs font-medium mr-2 ${getMethodColor(req.method || 'GET')}`}>
                                         {req.method || 'GET'}
