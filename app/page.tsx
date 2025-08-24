@@ -2,27 +2,41 @@
 
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 import { SignInButton, UserButton } from "@clerk/nextjs";
-import { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import {
     ArrowUp, Check, Edit3, Globe, KeyRound, Trash2, Type,
-    Bot, BarChart3, Feather, Share2, Play, Clock, CheckCircle2, AlertCircle, X, Plus,
-    Menu, ChevronRight, Settings
+    Bot, BarChart3, Feather, Share2, Play, Clock, CheckCircle2, AlertCircle, Plus,
+    Menu, ChevronRight
 } from 'lucide-react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { generateFlows } from "../lib/api";
+import { Id } from "../convex/_generated/dataModel";
+
+// --- TYPE DEFINITIONS ---
+
+type FlowStatus = 'pending' | 'approved' | 'executing' | 'completed' | 'failed' | 'running';
 
 interface TestFlow {
     name: string;
     description: string;
     instructions: string;
     approved?: boolean;
-    status?: 'pending' | 'approved' | 'executing' | 'completed' | 'failed' | 'running';
+    status?: FlowStatus;
     estimatedTime?: number;
     taskId?: string;
     liveUrl?: string;
-    sessionId?: string;
+    sessionId?: Id<"testSessions">;
+}
+
+interface ConvexFlow {
+    _id: string;
+    name: string;
+    description: string;
+    instructions: string;
+    approved: boolean;
+    status: FlowStatus;
 }
 
 interface GenerationResponse {
@@ -31,6 +45,24 @@ interface GenerationResponse {
     status: string;
     generation_time?: number;
 }
+
+type CreateBrowserSessionArgs = {
+    taskId: string;
+    browserSessionId: string;
+    flowName: string;
+    flowDescription: string;
+    instructions: string;
+    estimatedTime?: number;
+    sessionId?: Id<"testSessions">;
+    liveUrl?: string;
+};
+
+type UpdateBrowserSessionStatusArgs = {
+    taskId: string;
+    status: 'running';
+    liveUrl?: string;
+};
+
 
 // --- FLOW ICONS ---
 const flowIcons = {
@@ -113,7 +145,7 @@ function AuthenticatedContent() {
     const [websiteUrl, setWebsiteUrl] = useState("");
     const [flows, setFlows] = useState<TestFlow[]>([]);
     const [loading, setLoading] = useState(false);
-    const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+    const [currentSessionId, setCurrentSessionId] = useState<Id<"testSessions"> | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
     // Live session management
@@ -128,11 +160,11 @@ function AuthenticatedContent() {
     const userSessions = useQuery(api.browserTesting.listTestSessions, { limit: 20 });
     const currentSession = useQuery(
         api.browserTesting.getTestSession,
-        currentSessionId ? { sessionId: currentSessionId as any } : "skip"
+        currentSessionId ? { sessionId: currentSessionId } : "skip"
     );
     const activeBrowserSessions = useQuery(
         api.browserTesting.getActiveBrowserSessions,
-        currentSessionId ? { sessionId: currentSessionId as any } : {}
+        currentSessionId ? { sessionId: currentSessionId } : "skip"
     );
 
     const createSession = useMutation(api.browserTesting.createTestSession);
@@ -145,10 +177,138 @@ function AuthenticatedContent() {
     const updateBrowserSessionStatus = useMutation(api.browserTesting.updateBrowserSessionStatus);
     const closeBrowserSession = useMutation(api.browserTesting.closeBrowserSession);
 
+    // Start streaming logs for a task
+    const startTaskStreaming = useCallback((taskId: string) => {
+        if (activeStreams[taskId]) return; // Already streaming
+
+        try {
+            const eventSource = new EventSource(`${process.env.NEXT_PUBLIC_FASTAPI_URL}/api/browser-cloud/task/${taskId}/stream`);
+
+            eventSource.onmessage = (event) => {
+                const logData = JSON.parse(event.data);
+
+                // Update live URL in flows when available
+                if (logData.type === 'status' && logData.live_url) {
+                    setFlows(prevFlows =>
+                        prevFlows.map(flow =>
+                            flow.taskId === taskId
+                                ? { ...flow, liveUrl: logData.live_url }
+                                : flow
+                        )
+                    );
+
+                    // Update live sessions without clearing them
+                    setLiveSessions(prevSessions => {
+                        const updatedSessions = prevSessions.map(session =>
+                            session.taskId === taskId
+                                ? { ...session, liveUrl: logData.live_url }
+                                : session
+                        );
+                        console.log("Updated live sessions with URL:", updatedSessions.length, "sessions");
+                        return updatedSessions;
+                    });
+
+                    // Update Convex database with live URL
+                    const updateArgs: UpdateBrowserSessionStatusArgs = {
+                        taskId,
+                        status: 'running'
+                    };
+
+                    // Only include liveUrl if it's a non-null string
+                    if (logData.live_url && typeof logData.live_url === 'string') {
+                        updateArgs.liveUrl = logData.live_url;
+                    }
+
+                    updateBrowserSessionStatus(updateArgs).then(result => {
+                        if (result === null) {
+                            console.warn(`Browser session not found for taskId: ${taskId}, skipping database update`);
+                        }
+                    }).catch(error => {
+                        console.error("Failed to update browser session in Convex:", error);
+                        // Continue streaming even if database update fails
+                    });
+                }
+
+                // Handle completion
+                if (logData.type === 'completion' || logData.type === 'error') {
+                    eventSource.close();
+                    setActiveStreams(prev => {
+                        const newStreams = { ...prev };
+                        delete newStreams[taskId];
+                        return newStreams;
+                    });
+
+                    // Update status
+                    const finalStatus = logData.type === 'completion' ? 'completed' : 'failed';
+                    setFlows(prevFlows =>
+                        prevFlows.map(flow =>
+                            flow.taskId === taskId
+                                ? { ...flow, status: finalStatus }
+                                : flow
+                        )
+                    );
+
+                    // Update live sessions status without removing them
+                    setLiveSessions(prevSessions => {
+                        const updatedSessions = prevSessions.map(session =>
+                            session.taskId === taskId
+                                ? { ...session, status: finalStatus as TestFlow['status'] }
+                                : session
+                        );
+                        console.log("Updated live sessions with final status:", updatedSessions.length, "sessions");
+                        return updatedSessions;
+                    });
+
+                    // Update Convex database with final status
+                    closeBrowserSession({
+                        taskId,
+                        status: finalStatus,
+                        errorMessage: logData.type === 'error' ? logData.message : undefined
+                    }).then(result => {
+                        if (result === null) {
+                            console.warn(`Browser session not found for taskId: ${taskId}, skipping final status update`);
+                        }
+                    }).catch(error => {
+                        console.error("Failed to close browser session in Convex:", error);
+                        // Continue even if database update fails
+                    });
+                }
+            };
+
+            eventSource.onerror = () => {
+                eventSource.close();
+                setActiveStreams(prev => {
+                    const newStreams = { ...prev };
+                    delete newStreams[taskId];
+                    return newStreams;
+                });
+
+                // Update Convex database on streaming error
+                closeBrowserSession({
+                    taskId,
+                    status: 'failed',
+                    errorMessage: 'Streaming connection failed'
+                }).then(result => {
+                    if (result === null) {
+                        console.warn(`Browser session not found for taskId: ${taskId}, skipping error status update`);
+                    }
+                }).catch(error => {
+                    console.error("Failed to update browser session on streaming error:", error);
+                    // Continue even if database update fails
+                });
+            };
+
+            setActiveStreams(prev => ({ ...prev, [taskId]: eventSource }));
+        } catch (error) {
+            console.error('Failed to start streaming for task:', taskId, error);
+        }
+    }, [activeStreams, closeBrowserSession, updateBrowserSessionStatus]);
+
+
     // Load flows from current session
     useEffect(() => {
         if (currentSession?.flows) {
-            const sessionFlows = currentSession.flows.map((flow: any) => ({
+            const sessionFlows = currentSession.flows.map((flow: ConvexFlow) => ({
                 name: flow.name,
                 description: flow.description,
                 instructions: flow.instructions,
@@ -171,9 +331,9 @@ function AuthenticatedContent() {
                 description: session.flowDescription || 'Active browser session',
                 instructions: session.instructions || '',
                 approved: true,
-                status: session.status === 'executing' ? 'running' as const : session.status as any,
+                status: session.status === 'executing' ? 'running' as const : session.status as TestFlow['status'],
                 taskId: session.taskId,
-                sessionId: session.browserSessionId,
+                sessionId: session.browserSessionId as Id<"testSessions">, // Convert string to proper ID type
                 liveUrl: session.liveUrl,
                 estimatedTime: session.metadata?.estimatedTime || 30
             }));
@@ -192,10 +352,9 @@ function AuthenticatedContent() {
             // Clear live sessions if no browser sessions for current session
             setLiveSessions([]);
         }
-    }, [activeBrowserSessions, currentSessionId]);
+    }, [activeBrowserSessions, currentSessionId, startTaskStreaming]);
 
     // --- MEMOIZED VALUES ---
-    const approvedFlows = useMemo(() => flows.filter(f => f.status === 'approved' || f.approved), [flows]);
     const selectedFlows = useMemo(() => flows.filter(f => f.approved).map(f => flows.indexOf(f)), [flows]);
     const hasSelection = useMemo(() => selectedFlows.length > 0, [selectedFlows]);
     const showFlows = useMemo(() => flows.length > 0, [flows]);
@@ -267,7 +426,7 @@ function AuthenticatedContent() {
             console.error("Failed to generate flows:", error);
             if (currentSessionId) {
                 await updateSessionStatus({
-                    sessionId: currentSessionId as any,
+                    sessionId: currentSessionId,
                     status: "failed",
                     metadata: { errorMessage: "Failed to generate flows" }
                 });
@@ -280,7 +439,7 @@ function AuthenticatedContent() {
         }
     };
 
-    const handleSessionClick = (sessionId: string) => {
+    const handleSessionClick = (sessionId: Id<"testSessions">) => {
         console.log("Switching to session:", sessionId);
 
         // Stop all active streams before switching
@@ -399,14 +558,14 @@ function AuthenticatedContent() {
                     // Save browser session to Convex FIRST - this is critical to prevent race condition
                     try {
                         // Build the mutation arguments, only including liveUrl if it's a valid string
-                        const browserSessionArgs: any = {
+                        const browserSessionArgs: CreateBrowserSessionArgs = {
                             taskId: taskData.task_id,
                             browserSessionId: taskData.session_id,
                             flowName: flow.name,
                             flowDescription: flow.description,
                             instructions: flow.instructions,
                             estimatedTime: flow.estimatedTime,
-                            sessionId: currentSessionId ? (currentSessionId as any) : undefined // Associate with current test session
+                            sessionId: currentSessionId ? currentSessionId : undefined // Associate with current test session
                         };
 
                         // Only include liveUrl if it's a non-null string
@@ -490,133 +649,6 @@ function AuthenticatedContent() {
         setFlows([...flows, newFlow]);
         setEditingFlow(flows.length);
         setEditingFlowData(newFlow);
-    };
-
-    // Start streaming logs for a task
-    const startTaskStreaming = (taskId: string) => {
-        if (activeStreams[taskId]) return; // Already streaming
-
-        try {
-            const eventSource = new EventSource(`${process.env.NEXT_PUBLIC_FASTAPI_URL}/api/browser-cloud/task/${taskId}/stream`);
-
-            eventSource.onmessage = (event) => {
-                const logData = JSON.parse(event.data);
-
-                // Update live URL in flows when available
-                if (logData.type === 'status' && logData.live_url) {
-                    setFlows(prevFlows =>
-                        prevFlows.map(flow =>
-                            flow.taskId === taskId
-                                ? { ...flow, liveUrl: logData.live_url }
-                                : flow
-                        )
-                    );
-
-                    // Update live sessions without clearing them
-                    setLiveSessions(prevSessions => {
-                        const updatedSessions = prevSessions.map(session =>
-                            session.taskId === taskId
-                                ? { ...session, liveUrl: logData.live_url }
-                                : session
-                        );
-                        console.log("Updated live sessions with URL:", updatedSessions.length, "sessions");
-                        return updatedSessions;
-                    });
-
-                    // Update Convex database with live URL
-                    const updateArgs: any = {
-                        taskId,
-                        status: 'running'
-                    };
-
-                    // Only include liveUrl if it's a non-null string
-                    if (logData.live_url && typeof logData.live_url === 'string') {
-                        updateArgs.liveUrl = logData.live_url;
-                    }
-
-                    updateBrowserSessionStatus(updateArgs).then(result => {
-                        if (result === null) {
-                            console.warn(`Browser session not found for taskId: ${taskId}, skipping database update`);
-                        }
-                    }).catch(error => {
-                        console.error("Failed to update browser session in Convex:", error);
-                        // Continue streaming even if database update fails
-                    });
-                }
-
-                // Handle completion
-                if (logData.type === 'completion' || logData.type === 'error') {
-                    eventSource.close();
-                    setActiveStreams(prev => {
-                        const newStreams = { ...prev };
-                        delete newStreams[taskId];
-                        return newStreams;
-                    });
-
-                    // Update status
-                    const finalStatus = logData.type === 'completion' ? 'completed' : 'failed';
-                    setFlows(prevFlows =>
-                        prevFlows.map(flow =>
-                            flow.taskId === taskId
-                                ? { ...flow, status: finalStatus }
-                                : flow
-                        )
-                    );
-
-                    // Update live sessions status without removing them
-                    setLiveSessions(prevSessions => {
-                        const updatedSessions = prevSessions.map(session =>
-                            session.taskId === taskId
-                                ? { ...session, status: finalStatus as TestFlow['status'] }
-                                : session
-                        );
-                        console.log("Updated live sessions with final status:", updatedSessions.length, "sessions");
-                        return updatedSessions;
-                    });
-
-                    // Update Convex database with final status
-                    closeBrowserSession({
-                        taskId,
-                        status: finalStatus,
-                        errorMessage: logData.type === 'error' ? logData.message : undefined
-                    }).then(result => {
-                        if (result === null) {
-                            console.warn(`Browser session not found for taskId: ${taskId}, skipping final status update`);
-                        }
-                    }).catch(error => {
-                        console.error("Failed to close browser session in Convex:", error);
-                        // Continue even if database update fails
-                    });
-                }
-            };
-
-            eventSource.onerror = () => {
-                eventSource.close();
-                setActiveStreams(prev => {
-                    const newStreams = { ...prev };
-                    delete newStreams[taskId];
-                    return newStreams;
-                });
-
-                // Update Convex database on streaming error
-                closeBrowserSession({
-                    taskId,
-                    status: 'failed',
-                    errorMessage: 'Streaming connection failed'
-                }).then(result => {
-                    if (result === null) {
-                        console.warn(`Browser session not found for taskId: ${taskId}, skipping error status update`);
-                    }
-                }).catch(error => {
-                    console.error("Failed to update browser session on streaming error:", error);
-                    // Continue even if database update fails
-                });
-            };
-
-            setActiveStreams(prev => ({ ...prev, [taskId]: eventSource }));
-        } catch (error) {
-            console.error('Failed to start streaming for task:', taskId, error);
-        }
     };
 
     const getStatusColor = (status: string) => {

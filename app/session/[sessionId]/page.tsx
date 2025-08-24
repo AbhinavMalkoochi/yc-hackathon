@@ -1,36 +1,26 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useParams } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Globe, Clock, CheckCircle2, AlertCircle, Play, ExternalLink, Activity, Calendar, User, Hash } from 'lucide-react';
+import { ArrowLeft, Globe, Clock, CheckCircle2, AlertCircle, ExternalLink, Activity, Calendar, User, Hash } from 'lucide-react';
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 import { SignInButton, UserButton } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { Doc, Id } from '../../../convex/_generated/dataModel';
 
-interface BrowserSession {
-    _id: string;
-    taskId: string;
-    browserSessionId: string;
-    flowName: string;
-    flowDescription: string;
-    instructions: string;
-    status: 'executing' | 'running' | 'completed' | 'failed' | 'terminated';
-    liveUrl?: string;
-    currentUrl?: string;
-    currentAction?: string;
-    progress?: number;
-    startedAt: string;
-    completedAt?: string;
-    metadata?: {
-        estimatedTime?: number;
-    };
+// Define a type for a single flow within a test session
+interface Flow {
+    approved: boolean;
+    // Add other properties of a flow if known
 }
+
+// The BrowserSession type is now inferred from the Convex schema (Doc)
+type BrowserSession = Doc<"browserSessions">;
 
 const SessionPage = () => {
     const params = useParams();
-    const sessionId = params.sessionId as string;
+    const sessionId = params.sessionId as Id<"testSessions">;
 
     return (
         <>
@@ -63,10 +53,10 @@ const SessionPage = () => {
     );
 };
 
-const SessionPageContent = ({ sessionId }: { sessionId: string }) => {
-    // Convex queries
-    const testSession = useQuery(api.browserTesting.getTestSession, { sessionId: sessionId as any });
-    const browserSessions = useQuery(api.browserTesting.getAllBrowserSessionsForTestSession, { sessionId: sessionId as any });
+const SessionPageContent = ({ sessionId }: { sessionId: Id<"testSessions"> }) => {
+    // Convex queries - removed 'as any' as useQuery can infer the type
+    const testSession = useQuery(api.browserTesting.getTestSession, { sessionId });
+    const browserSessions: BrowserSession[] | undefined = useQuery(api.browserTesting.getAllBrowserSessionsForTestSession, { sessionId });
 
     // Get status color
     const getStatusColor = (status: string) => {
@@ -96,7 +86,7 @@ const SessionPageContent = ({ sessionId }: { sessionId: string }) => {
     };
 
     // Format date
-    const formatDate = (dateString: string) => {
+    const formatDate = (dateString: string | number) => {
         return new Date(dateString).toLocaleString('en-US', {
             month: 'short',
             day: 'numeric',
@@ -107,7 +97,7 @@ const SessionPageContent = ({ sessionId }: { sessionId: string }) => {
     };
 
     // Calculate duration
-    const calculateDuration = (start: string, end?: string) => {
+    const calculateDuration = (start: string | number, end?: string | number) => {
         const startTime = new Date(start).getTime();
         const endTime = end ? new Date(end).getTime() : Date.now();
         const duration = Math.floor((endTime - startTime) / 1000);
@@ -197,7 +187,7 @@ const SessionPageContent = ({ sessionId }: { sessionId: string }) => {
                                 <Calendar size={16} className="mr-1" />
                                 Created At
                             </div>
-                            <p className="text-gray-700">{formatDate(testSession.createdAt)}</p>
+                            <p className="text-gray-700">{formatDate(testSession._creationTime)}</p>
                         </div>
 
                         <div className="space-y-1">
@@ -229,7 +219,7 @@ const SessionPageContent = ({ sessionId }: { sessionId: string }) => {
                                 </div>
                                 <div>
                                     <div className="text-2xl font-bold text-green-600">
-                                        {testSession.flows.filter((f: any) => f.approved).length}
+                                        {testSession.flows.filter((f: Flow) => f.approved).length}
                                     </div>
                                     <div className="text-sm text-gray-500">Approved</div>
                                 </div>

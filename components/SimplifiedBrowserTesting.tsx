@@ -4,9 +4,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ArrowUp, Check, Edit3, Globe, KeyRound, Trash2, Type,
-    Bot, BarChart3, Feather, Share2, Play, Clock, CheckCircle2, AlertCircle, X, Plus,
-    Menu, ChevronRight, Settings, Eye, FileText, Activity, Calendar, User, Hash,
-    ExternalLink, Maximize2, Minimize2, RefreshCw, AlertTriangle
+    Bot, BarChart3, Feather, Share2, Play, Clock, CheckCircle2, AlertCircle, Plus,
+    Menu, Eye, FileText, Activity,
+    ExternalLink, Maximize2, Minimize2
 } from 'lucide-react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
@@ -78,7 +78,7 @@ export default function SimplifiedBrowserTesting() {
     const [loading, setLoading] = useState(false);
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [selectedSession, setSelectedSession] = useState<string | null>(null);
+    const [, setSelectedSession] = useState<string | null>(null);
     const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
 
     // Live session management
@@ -160,7 +160,6 @@ export default function SimplifiedBrowserTesting() {
     }, [activeBrowserSessions, currentSessionId]);
 
     // --- MEMOIZED VALUES ---
-    const approvedFlows = useMemo(() => flows.filter(f => f.status === 'approved' || f.approved), [flows]);
     const selectedFlows = useMemo(() => flows.filter(f => f.approved).map(f => flows.indexOf(f)), [flows]);
     const hasSelection = useMemo(() => selectedFlows.length > 0, [selectedFlows]);
     const showFlows = useMemo(() => flows.length > 0, [flows]);

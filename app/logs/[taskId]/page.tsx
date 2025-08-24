@@ -7,6 +7,7 @@ import { ArrowLeft, RefreshCw, Play, Pause, Globe, Activity, FileText, Network, 
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 import { SignInButton, UserButton } from "@clerk/nextjs";
 
+// Interface definitions remain the same
 interface SessionLog {
   taskId: string;
   logs: Array<{
@@ -68,181 +69,8 @@ interface Step {
 }
 
 const LogsPage = () => {
-  const params = useParams();
-  const searchParams = useSearchParams();
-  const taskId = params.taskId as string;
-
-  // State management
-  const [sessionDetails, setSessionDetails] = useState<SessionDetails | null>(null);
-  const [sessionLogs, setSessionLogs] = useState<SessionLog | null>(null);
-  const [networkLogs, setNetworkLogs] = useState<NetworkLog[]>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'logs' | 'network' | 'steps'>('overview');
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [eventSource, setEventSource] = useState<EventSource | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-
-  const logsEndRef = useRef<HTMLDivElement>(null);
-  const networkEndRef = useRef<HTMLDivElement>(null);
-
-  // Fetch session details
-  const fetchSessionDetails = async () => {
-    try {
-      const response = await fetch(`http://localhost:8000/api/browser-cloud/task/${taskId}`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-      const details = await response.json();
-      setSessionDetails(details);
-
-      // Extract network logs from steps if available
-      if (details.steps) {
-        const extractedNetworkLogs: NetworkLog[] = [];
-        details.steps.forEach((step: Step) => {
-          if (step.network_requests) {
-            step.network_requests.forEach((req: NetworkRequest) => {
-              extractedNetworkLogs.push({
-                timestamp: new Date().toISOString(),
-                method: req.method || 'GET',
-                url: req.url || step.url || 'unknown',
-                status: req.status || 200,
-                responseTime: req.response_time || 0,
-                requestSize: req.request_size || 0,
-                responseSize: req.response_size || 0,
-                headers: req.headers || {}
-              });
-            });
-          }
-        });
-        setNetworkLogs(extractedNetworkLogs);
-      }
-    } catch (error) {
-      console.error('Failed to fetch session details:', error);
-    }
-  };
-
-  // Start streaming logs
-  const startStreaming = useCallback(() => {
-    if (eventSource) return;
-
-    try {
-      const es = new EventSource(`http://localhost:8000/api/browser-cloud/task/${taskId}/stream`);
-      setEventSource(es);
-      setIsStreaming(true);
-
-      // Initialize logs
-      setSessionLogs({ taskId, logs: [] });
-
-      es.onmessage = (event) => {
-        const logData = JSON.parse(event.data);
-
-        setSessionLogs(prev => ({
-          ...prev!,
-          logs: [...(prev?.logs || []), {
-            type: logData.type,
-            timestamp: logData.timestamp,
-            data: logData
-          }]
-        }));
-
-        // Auto-scroll to bottom
-        setTimeout(() => {
-          logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
-      };
-
-      es.onerror = () => {
-        es.close();
-        setEventSource(null);
-        setIsStreaming(false);
-      };
-    } catch (error) {
-      console.error('Failed to start streaming:', error);
-    }
-  }, [eventSource, taskId]);
-
-  // Stop streaming
-  const stopStreaming = () => {
-    if (eventSource) {
-      eventSource.close();
-      setEventSource(null);
-      setIsStreaming(false);
-    }
-  };
-
-  // Toggle auto-refresh
-  const toggleAutoRefresh = () => {
-    setAutoRefresh(!autoRefresh);
-    if (!autoRefresh) {
-      fetchSessionDetails();
-    }
-  };
-
-  // Fetch details on mount and start streaming
-  useEffect(() => {
-    fetchSessionDetails();
-    startStreaming();
-
-    // Auto-refresh session details
-    const interval = setInterval(() => {
-      if (autoRefresh) {
-        fetchSessionDetails();
-      }
-    }, 5000);
-
-    return () => {
-      clearInterval(interval);
-      stopStreaming();
-    };
-  }, [taskId, autoRefresh, startStreaming]);
-
-  // Auto-scroll network logs
-  useEffect(() => {
-    setTimeout(() => {
-      networkEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
-  }, [networkLogs]);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'running': return 'bg-yellow-100 text-yellow-800';
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'failed': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getLogTypeColor = (type: string) => {
-    switch (type) {
-      case 'step': return 'bg-blue-50 border-blue-200';
-      case 'status': return 'bg-yellow-50 border-yellow-200';
-      case 'completion': return 'bg-green-50 border-green-200';
-      case 'error': return 'bg-red-50 border-red-200';
-      default: return 'bg-gray-50 border-gray-200';
-    }
-  };
-
-  const getMethodColor = (method: string) => {
-    switch (method.toUpperCase()) {
-      case 'GET': return 'bg-green-100 text-green-800';
-      case 'POST': return 'bg-blue-100 text-blue-800';
-      case 'PUT': return 'bg-yellow-100 text-yellow-800';
-      case 'DELETE': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusColorClass = (status: number) => {
-    if (status >= 200 && status < 300) return 'text-green-600';
-    if (status >= 400 && status < 500) return 'text-yellow-600';
-    if (status >= 500) return 'text-red-600';
-    return 'text-gray-600';
-  };
-
-  // Simple helper function to safely extract string values
-  const getSafeString = (value: unknown): string => {
-    if (value == null) return '';
-    return String(value);
-  };
-
+  // This component now only handles authentication states.
+  // All logic and state have been moved to LogsPageContent.
   return (
     <>
       <AuthLoading>
@@ -296,7 +124,7 @@ const LogsPageContent = () => {
   const networkEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch session details
-  const fetchSessionDetails = async () => {
+  const fetchSessionDetails = useCallback(async () => {
     try {
       const response = await fetch(`http://localhost:8000/api/browser-cloud/task/${taskId}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -304,7 +132,6 @@ const LogsPageContent = () => {
       const details = await response.json();
       setSessionDetails(details);
 
-      // Extract network logs from steps if available
       if (details.steps) {
         const extractedNetworkLogs: NetworkLog[] = [];
         details.steps.forEach((step: Step) => {
@@ -328,7 +155,16 @@ const LogsPageContent = () => {
     } catch (error) {
       console.error('Failed to fetch session details:', error);
     }
-  };
+  }, [taskId]);
+
+  // Stop streaming
+  const stopStreaming = useCallback(() => {
+    if (eventSource) {
+      eventSource.close();
+      setEventSource(null);
+      setIsStreaming(false);
+    }
+  }, [eventSource]);
 
   // Start streaming logs
   const startStreaming = useCallback(() => {
@@ -338,13 +174,10 @@ const LogsPageContent = () => {
       const es = new EventSource(`http://localhost:8000/api/browser-cloud/task/${taskId}/stream`);
       setEventSource(es);
       setIsStreaming(true);
-
-      // Initialize logs
       setSessionLogs({ taskId, logs: [] });
 
       es.onmessage = (event) => {
         const logData = JSON.parse(event.data);
-
         setSessionLogs(prev => ({
           ...prev!,
           logs: [...(prev?.logs || []), {
@@ -353,46 +186,32 @@ const LogsPageContent = () => {
             data: logData
           }]
         }));
-
-        // Auto-scroll to bottom
-        setTimeout(() => {
-          logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
+        setTimeout(() => logsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
       };
 
       es.onerror = () => {
-        es.close();
-        setEventSource(null);
-        setIsStreaming(false);
+        stopStreaming();
       };
     } catch (error) {
       console.error('Failed to start streaming:', error);
     }
-  }, [eventSource, taskId]);
-
-  // Stop streaming
-  const stopStreaming = () => {
-    if (eventSource) {
-      eventSource.close();
-      setEventSource(null);
-      setIsStreaming(false);
-    }
-  };
+  }, [eventSource, taskId, stopStreaming]);
 
   // Toggle auto-refresh
   const toggleAutoRefresh = () => {
-    setAutoRefresh(!autoRefresh);
-    if (!autoRefresh) {
-      fetchSessionDetails();
-    }
+    setAutoRefresh(prev => {
+      if (prev) { // If it was on and is now turning off
+        fetchSessionDetails();
+      }
+      return !prev;
+    });
   };
 
-  // Fetch details on mount and start streaming
+  // Fetch details on mount, start streaming, and set up auto-refresh
   useEffect(() => {
     fetchSessionDetails();
     startStreaming();
 
-    // Auto-refresh session details
     const interval = setInterval(() => {
       if (autoRefresh) {
         fetchSessionDetails();
@@ -403,7 +222,7 @@ const LogsPageContent = () => {
       clearInterval(interval);
       stopStreaming();
     };
-  }, [taskId, autoRefresh, startStreaming]);
+  }, [taskId, autoRefresh, startStreaming, fetchSessionDetails, stopStreaming]);
 
   // Auto-scroll network logs
   useEffect(() => {
@@ -412,6 +231,7 @@ const LogsPageContent = () => {
     }, 100);
   }, [networkLogs]);
 
+  // Helper functions for styling
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'running': return 'bg-yellow-100 text-yellow-800';
@@ -446,12 +266,6 @@ const LogsPageContent = () => {
     if (status >= 400 && status < 500) return 'text-yellow-600';
     if (status >= 500) return 'text-red-600';
     return 'text-gray-600';
-  };
-
-  // Simple helper function to safely extract string values
-  const getSafeString = (value: unknown): string => {
-    if (value == null) return '';
-    return String(value);
   };
 
   return (
@@ -674,8 +488,6 @@ const LogsPageContent = () => {
                                 {new Date(log.timestamp).toLocaleTimeString()}
                               </span>
                             </div>
-
-                            {/* Simple log rendering without complex conditional logic */}
                             <div className="text-black">
                               <pre className="text-xs whitespace-pre-wrap">
                                 {JSON.stringify(log.data, null, 2)}

@@ -184,7 +184,7 @@ export interface StreamMessage {
   type: string;
   message?: string;
   timestamp?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface StreamClientOptions {
