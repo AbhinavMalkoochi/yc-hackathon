@@ -7,12 +7,13 @@ import { motion } from 'framer-motion';
 import {
     ArrowUp, Check, Edit3, Globe, KeyRound, Trash2, Type,
     Bot, BarChart3, Feather, Share2, Play, Clock, CheckCircle2, AlertCircle, Plus,
-    Menu, ChevronRight, Shield, Eye, EyeOff
+    Menu, ChevronRight
 } from 'lucide-react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { generateFlows } from "../lib/api";
 import { Id } from "../convex/_generated/dataModel";
+import CredentialsManager from "./components/CredentialsManager";
 
 // --- TYPE DEFINITIONS ---
 
@@ -45,18 +46,6 @@ interface GenerationResponse {
     message: string;
     status: string;
     generation_time?: number;
-}
-
-// Credentials management types
-interface Credential {
-    key: string;
-    value: string;
-    isVisible: boolean;
-}
-
-interface WebsiteCredentials {
-    domain: string;
-    credentials: Credential[];
 }
 
 type CreateBrowserSessionArgs = {
@@ -168,13 +157,6 @@ function AuthenticatedContent() {
     // Flow editing state
     const [editingFlow, setEditingFlow] = useState<number | null>(null);
     const [editingFlowData, setEditingFlowData] = useState<TestFlow | null>(null);
-
-    // Credentials management state
-    const [credentials, setCredentials] = useState<WebsiteCredentials[]>([]);
-    const [showCredentialsPanel, setShowCredentialsPanel] = useState(false);
-    const [editingCredentials, setEditingCredentials] = useState<WebsiteCredentials | null>(null);
-    const [newCredentialKey, setNewCredentialKey] = useState('');
-    const [newCredentialValue, setNewCredentialValue] = useState('');
 
     // Convex queries and mutations
     const userSessions = useQuery(api.browserTesting.listTestSessions, { limit: 20 });
@@ -806,6 +788,36 @@ function AuthenticatedContent() {
                         transition={{ duration: 0.5, ease: 'easeInOut' }}
                         className="mb-8"
                     >
+                        {/* Help Section for Credentials */}
+                        {websiteUrl && (websiteUrl.includes('example.com') || websiteUrl.includes('test.com')) && (
+                            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl">
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 bg-green-100 rounded-lg">
+                                        <KeyRound size={16} className="text-green-700" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="font-medium text-green-800 mb-2">Credentials Available! 🎉</h3>
+                                        <p className="text-sm text-green-700 mb-3">
+                                            You have stored credentials for this website. Use the placeholder names in your prompt:
+                                        </p>
+                                        <div className="bg-white p-3 rounded-lg border border-green-200">
+                                            <p className="text-xs font-medium text-green-800 mb-1">✅ Good Examples:</p>
+                                            <ul className="text-xs text-green-700 space-y-1">
+                                                <li>• "Test login with x_username and x_password"</li>
+                                                <li>• "Login to the site using x_username and x_password"</li>
+                                                <li>• "Verify user can sign in with x_username and x_password"</li>
+                                            </ul>
+                                            <p className="text-xs font-medium text-red-600 mt-2 mb-1">❌ Don't use actual values:</p>
+                                            <ul className="text-xs text-red-600 space-y-1">
+                                                <li>• "Test login with john@example.com and password123"</li>
+                                                <li>• "Login using demo@example.com and demo123456"</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="relative w-full p-2 bg-white/60 border border-white/80 rounded-2xl shadow-xl shadow-black/5 backdrop-blur-2xl">
                             <form onSubmit={handleFormSubmit} className="flex items-center w-full gap-2">
                                 <div className="flex items-center flex-grow p-2 rounded-lg bg-black/5">
@@ -814,7 +826,9 @@ function AuthenticatedContent() {
                                         type="text"
                                         value={prompt}
                                         onChange={(e) => setPrompt(e.target.value)}
-                                        placeholder="What should we automate?"
+                                        placeholder={websiteUrl && (websiteUrl.includes('example.com') || websiteUrl.includes('test.com'))
+                                            ? "e.g., Test login with x_username and x_password, then verify dashboard loads"
+                                            : "What should we automate?"}
                                         className="w-full h-10 text-sm bg-transparent focus:outline-none placeholder:text-black/40"
                                     />
                                 </div>
@@ -846,6 +860,26 @@ function AuthenticatedContent() {
                                     )}
                                 </motion.button>
                             </form>
+
+                            {/* Credentials Indicator */}
+                            {websiteUrl && (
+                                <div className="mt-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <KeyRound size={16} className="text-blue-600" />
+                                        <span className="text-blue-800">
+                                            {websiteUrl.includes('example.com') || websiteUrl.includes('test.com')
+                                                ? '✅ Credentials available for this website! Use x_username, x_password in your prompt.'
+                                                : 'ℹ️ No stored credentials for this website. Add them in the credentials manager!'}
+                                        </span>
+                                    </div>
+                                    {(websiteUrl.includes('example.com') || websiteUrl.includes('test.com')) && (
+                                        <div className="mt-2 text-xs text-blue-700">
+                                            <p><strong>Example prompt:</strong> "Test login with x_username and x_password"</p>
+                                            <p>The AI will automatically use your stored credentials when you reference x_username, x_password</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </motion.div>
 
@@ -1026,6 +1060,22 @@ function AuthenticatedContent() {
                         </div>
                     )}
                 </div>
+            </div>
+
+            {/* Credentials Manager */}
+            <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
+                {/* Info tooltip */}
+                <div className="bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-200 max-w-xs">
+                    <div className="flex items-start gap-2">
+                        <KeyRound size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div className="text-xs text-gray-700">
+                            <p className="font-medium mb-1">Credentials System</p>
+                            <p>Store login details securely. Use <code className="bg-gray-100 px-1 rounded">x_username</code> and <code className="bg-gray-100 px-1 rounded">x_password</code> in your prompts.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <CredentialsManager />
             </div>
         </div>
     );

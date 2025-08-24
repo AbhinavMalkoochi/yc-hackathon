@@ -257,6 +257,37 @@ async def remove_credentials(domain: str):
         logger.error(f"Failed to remove credentials: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to remove credentials: {str(e)}")
 
+@app.get("/api/credentials/test")
+async def test_credentials():
+    """Test endpoint to verify credentials system is working"""
+    try:
+        # Test adding credentials
+        test_domain = "test-credentials.com"
+        test_creds = {"username": "testuser", "password": "testpass123"}
+        
+        add_credentials(test_domain, test_creds)
+        
+        # Test retrieving credentials
+        retrieved_creds = get_credentials_for_domain(test_domain)
+        
+        # Clean up test credentials
+        if test_domain in CREDENTIALS_STORE:
+            del CREDENTIALS_STORE[test_domain]
+        
+        return {
+            "status": "success",
+            "message": "Credentials system is working correctly",
+            "test_domain": test_domain,
+            "stored_credentials": test_creds,
+            "retrieved_credentials": retrieved_creds,
+            "credentials_match": test_creds == retrieved_creds,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Credentials test failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Credentials test failed: {str(e)}")
+
 # ==================== AI FLOW GENERATION ====================
 
 def create_flow_generation_prompt(user_prompt: str, website_url: Optional[str] = None, num_flows: int = 5) -> str:
@@ -280,7 +311,7 @@ Generate exactly {num_flows} test flows that cover different aspects of testing.
 For each test flow, provide:
 - name: A clear, descriptive name (max 50 characters)
 - description: A brief explanation of what this flow tests (max 100 characters)  
-- instructions: Step by Step overview on what to do. do not exactly impose any details but give a general idea and guiding instructions.
+- instructions: Detailed step-by-step instructions for browser automation (be specific about what to click, type, verify)
 
 Return ONLY a valid JSON array with this exact structure:
 [
@@ -437,14 +468,66 @@ async def create_parallel_browser_flows(request: ParallelBrowserFlowRequest):
         batch_id = str(uuid.uuid4())
         
         async def create_single_task(flow: str) -> BrowserCloudTaskResponse:
-            """Create a single browser task"""
+            """Create a single browser task with credentials if available"""
             api_url = "https://api.browser-use.com/api/v1/run-task"
             headers = {
                 "Authorization": f"Bearer {BROWSER_USE_API_KEY}",
                 "Content-Type": "application/json"
             }
             
+            # Prepare the payload with task
             payload = {"task": flow}
+            
+            # Extract domain from flow if possible (simple heuristic)
+            # In a real implementation, you might want to parse this more intelligently
+            domain = None
+            
+            # Try to extract domain from the flow text
+            import re
+            
+            # Look for common domain patterns
+            domain_patterns = [
+                r'https?://([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',  # http:// or https:// domains
+                r'([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',          # Just domain names
+                r'login to ([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',  # "login to example.com"
+                r'go to ([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',     # "go to example.com"
+                r'navigate to ([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})' # "navigate to example.com"
+            ]
+            
+            for pattern in domain_patterns:
+                match = re.search(pattern, flow.lower())
+                if match:
+                    domain = match.group(1)
+                    break
+            
+            # Fallback to hardcoded domains if no pattern found
+            if not domain:
+                if "example.com" in flow.lower():
+                    domain = "example.com"
+                elif "test.com" in flow.lower():
+                    domain = "test.com"
+            
+            logger.info(f"Extracted domain '{domain}' from flow: {flow[:50]}...")
+            
+            # Add credentials if available for the domain
+            if domain:
+                credentials = get_credentials_for_domain(domain)
+                if credentials:
+                    # Convert credentials to Browser Use format with x_ prefix
+                    sensitive_data = {}
+                    for key, value in credentials.items():
+                        sensitive_data[f"x_{key}"] = value
+                    
+                    payload["sensitive_data"] = {
+                        f"https://{domain}": sensitive_data
+                    }
+                    
+                    logger.info(f"Added credentials for domain {domain} to task: {list(sensitive_data.keys())}")
+                    logger.info(f"Full sensitive_data payload: {payload['sensitive_data']}")
+                else:
+                    logger.info(f"No credentials found for domain: {domain}")
+            else:
+                logger.info("No domain detected from flow, skipping credentials")
             
             # Use requests in thread pool for async behavior
             loop = asyncio.get_event_loop()
@@ -452,18 +535,18 @@ async def create_parallel_browser_flows(request: ParallelBrowserFlowRequest):
                 None, 
                 lambda: requests.post(api_url, headers=headers, json=payload)
             )
-            response.raise_for_status()
-            
-            task_data = response.json()
-            task_id = task_data["id"]
-            
+        response.raise_for_status()
+        
+        task_data = response.json()
+        task_id = task_data["id"]
+        
             logger.info(f"Created Browser Use Cloud task: {task_id} for flow: {flow[:50]}...")
-            
-            return BrowserCloudTaskResponse(
-                task_id=task_id,
+        
+        return BrowserCloudTaskResponse(
+            task_id=task_id,
                 session_id=task_id,
                 live_url=None,  # Will be available after task starts
-                status="started"
+            status="started"
             )
         
         # Create all tasks in parallel

@@ -47,10 +47,29 @@ const StatsResponseSchema = z.object({
   }),
 });
 
+// Credentials schemas
+const CredentialsResponseSchema = z.object({
+  message: z.string(),
+  status: z.string(),
+  domain: z.string(),
+  credentials_count: z.number(),
+  timestamp: z.string(),
+});
+
+const ListCredentialsResponseSchema = z.object({
+  message: z.string(),
+  status: z.string(),
+  domains: z.array(z.string()),
+  total_domains: z.number(),
+  timestamp: z.string(),
+});
+
 type MessageResponse = z.infer<typeof MessageResponseSchema>;
 type HealthResponse = z.infer<typeof HealthResponseSchema>;
 type TestResponse = z.infer<typeof TestResponseSchema>;
 type StatsResponse = z.infer<typeof StatsResponseSchema>;
+type CredentialsResponse = z.infer<typeof CredentialsResponseSchema>;
+type ListCredentialsResponse = z.infer<typeof ListCredentialsResponseSchema>;
 
 // Generic API error class
 class ApiError extends Error {
@@ -299,5 +318,38 @@ export type {
   HealthResponse,
   TestResponse,
   StatsResponse,
-  ApiError,
+  CredentialsResponse,
+  ListCredentialsResponse,
 };
+
+// ==================== CREDENTIALS MANAGEMENT ====================
+
+export async function addCredentials(
+  domain: string,
+  credentials: Record<string, string>,
+): Promise<CredentialsResponse> {
+  return apiRequest(
+    "/api/credentials/add",
+    {
+      method: "POST",
+      body: JSON.stringify({ domain, credentials }),
+    },
+    CredentialsResponseSchema,
+  );
+}
+
+export async function listCredentials(): Promise<ListCredentialsResponse> {
+  return apiRequest(
+    "/api/credentials/list",
+    { method: "GET" },
+    ListCredentialsResponseSchema,
+  );
+}
+
+export async function removeCredentials(
+  domain: string,
+): Promise<{ message: string; status: string; timestamp: string }> {
+  return apiRequest(`/api/credentials/${encodeURIComponent(domain)}`, {
+    method: "DELETE",
+  });
+}
