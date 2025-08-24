@@ -237,15 +237,10 @@ const LogsPage = () => {
     return 'text-gray-600';
   };
 
-  // Helper function to safely extract string values from log data
-  const getLogValue = (data: Record<string, unknown>, key: string): string => {
-    const value = data[key];
-    return value != null ? String(value) : '';
-  };
-
-  const getStepValue = (step: Record<string, unknown>, key: string): string => {
-    const value = step[key];
-    return value != null ? String(value) : '';
+  // Simple helper function to safely extract string values
+  const getSafeString = (value: unknown): string => {
+    if (value == null) return '';
+    return String(value);
   };
 
   return (
@@ -453,15 +448,10 @@ const LogsPageContent = () => {
     return 'text-gray-600';
   };
 
-  // Helper function to safely extract string values from log data
-  const getLogValue = (data: Record<string, unknown>, key: string): string => {
-    const value = data[key];
-    return value != null ? String(value) : '';
-  };
-
-  const getStepValue = (step: Record<string, unknown>, key: string): string => {
-    const value = step[key];
-    return value != null ? String(value) : '';
+  // Simple helper function to safely extract string values
+  const getSafeString = (value: unknown): string => {
+    if (value == null) return '';
+    return String(value);
   };
 
   return (
@@ -685,32 +675,12 @@ const LogsPageContent = () => {
                               </span>
                             </div>
 
-                            {log.type === 'step' && log.data.step && (
-                              <div className="space-y-1 text-black">
-                                <p><strong>Goal:</strong> {getStepValue(log.data.step as Record<string, unknown>, 'next_goal')}</p>
-                                {(log.data.step as Record<string, unknown>).evaluation_previous_goal && (
-                                  <p><strong>Evaluation:</strong> {getStepValue(log.data.step as Record<string, unknown>, 'evaluation_previous_goal')}</p>
-                                )}
-                              </div>
-                            )}
-
-                            {log.type === 'status' && (
-                              <div className="space-y-1 text-black">
-                                <p><strong>Status:</strong> {getLogValue(log.data, 'status')}</p>
-                                <p><strong>Steps:</strong> {getLogValue(log.data, 'steps_count')}</p>
-                              </div>
-                            )}
-
-                            {log.type === 'completion' && (
-                              <div className="text-black">
-                                <p><strong>Final Status:</strong> {getLogValue(log.data, 'status')}</p>
-                                {log.data.output && <p><strong>Output:</strong> {getLogValue(log.data, 'output')}</p>}
-                              </div>
-                            )}
-
-                            {log.type === 'error' && (
-                              <p className="text-red-700">{getLogValue(log.data, 'error')}</p>
-                            )}
+                            {/* Simple log rendering without complex conditional logic */}
+                            <div className="text-black">
+                              <pre className="text-xs whitespace-pre-wrap">
+                                {JSON.stringify(log.data, null, 2)}
+                              </pre>
+                            </div>
                           </div>
                         ))}
                         <div ref={logsEndRef} />
